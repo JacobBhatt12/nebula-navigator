@@ -4,18 +4,9 @@ import { MeteorManager }  from './meteor.js';
 import { StardustManager } from './stardust.js';
 import { addXP, getLevel, getSkin, reset as resetProgression } from './progression.js';
 import { HUD }            from '../ui/hud.js';
-
-// ─── Pose Interface Stub ──────────────────────────────────────────────────────
-// Matches the poseInterface.js contract agreed with Markaelo.
-// When his tracking branch lands, replace this block with:
-//   import { poseData } from '../tracking/poseInterface.js';
-const poseData = {
-  hipX:         0.5,
-  leftWrist:    { x: 0.3, y: 0.65 },
-  rightWrist:   { x: 0.7, y: 0.65 },
-  bubbleRadius: 120,
-  isCalibrated: false,
-};
+import { poseData }       from '../tracking/poseInterface.js';
+import { initPoseEngine } from '../tracking/poseEngine.js';
+import { runCalibration } from '../tracking/calibration.js';
 
 // ─── State Machine ────────────────────────────────────────────────────────────
 export const GameState = {
@@ -51,14 +42,27 @@ let sessionTimer = 0;
 let rafId        = null;
 let lastTime     = 0;
 
+// Smoothed wrist pixel positions — lerped each frame to kill MediaPipe jitter
+let smoothLwx = 0, smoothLwy = 0;
+let smoothRwx = 0, smoothRwy = 0;
+const WRIST_SMOOTH = 10; // higher = smoother but more lag
+
 // ─── Input ────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Space') return;
   e.preventDefault();
 
-  if      (state === GameState.IDLE)        setState(GameState.CALIBRATING);
-  else if (state === GameState.CALIBRATING) startSession();   // dev bypass
-  else if (state === GameState.ENDED)     { resetSession(); setState(GameState.IDLE); }
+  if (state === GameState.IDLE) {
+    setState(GameState.CALIBRATING);
+    runCalibration(10_000).then(() => {
+      if (state === GameState.CALIBRATING) startSession();
+    });
+  } else if (state === GameState.CALIBRATING) {
+    startSession();   // dev bypass
+  } else if (state === GameState.ENDED) {
+    resetSession();
+    setState(GameState.IDLE);
+  }
 });
 
 function checkCalibration() {
@@ -105,14 +109,19 @@ function update(dt) {
   sessionTimer += dt;
   if (sessionTimer >= SESSION_SEC) { endSession(); return; }
 
-  // ship follows hipX with lerp (J2.1 / J3.1)
-  ship.lerpTo(poseData.hipX * canvas.width, dt);
+  // flip X to match mirrored webcam display (scaleX(-1) in CSS)
+  ship.lerpTo((1 - poseData.hipX) * canvas.width, dt);
   ship.update(dt);
 
-  const lwx = poseData.leftWrist.x  * canvas.width;
-  const lwy = poseData.leftWrist.y  * canvas.height;
-  const rwx = poseData.rightWrist.x * canvas.width;
-  const rwy = poseData.rightWrist.y * canvas.height;
+  // smooth wrist positions to remove MediaPipe jitter
+  const t = Math.min(1, WRIST_SMOOTH * dt);
+  smoothLwx += ((1 - poseData.leftWrist.x)  * canvas.width  - smoothLwx) * t;
+  smoothLwy += (poseData.leftWrist.y         * canvas.height - smoothLwy) * t;
+  smoothRwx += ((1 - poseData.rightWrist.x) * canvas.width  - smoothRwx) * t;
+  smoothRwy += (poseData.rightWrist.y        * canvas.height - smoothRwy) * t;
+
+  const lwx = smoothLwx, lwy = smoothLwy;
+  const rwx = smoothRwx, rwy = smoothRwy;
 
   // J3.3 — meteors scale with level
   const hits = meteors.update(dt, canvas.width, canvas.height, ship);
@@ -177,11 +186,9 @@ function draw() {
     return;
   }
 
-  // PLAYING or ENDED — draw the game world
-  const lwx = poseData.leftWrist.x  * canvas.width;
-  const lwy = poseData.leftWrist.y  * canvas.height;
-  const rwx = poseData.rightWrist.x * canvas.width;
-  const rwy = poseData.rightWrist.y * canvas.height;
+  // PLAYING or ENDED — draw the game world (use smoothed wrist positions)
+  const lwx = smoothLwx, lwy = smoothLwy;
+  const rwx = smoothRwx, rwy = smoothRwy;
 
   stardust.draw(ctx);
   meteors.draw(ctx);
@@ -221,6 +228,7 @@ function loop(timestamp) {
 export function startGame() {
   resize();
   window.addEventListener('resize', resize);
+  initPoseEngine().catch(err => console.warn('[PoseEngine] init failed:', err));
   lastTime = performance.now();
   rafId    = requestAnimationFrame(loop);
 }

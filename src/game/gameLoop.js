@@ -30,8 +30,8 @@ const ctx    = canvas.getContext('2d');
 
 // ─── Game Objects ─────────────────────────────────────────────────────────────
 const ship      = new Ship(0, 0);
-const leftArm   = new Arm();
-const rightArm  = new Arm();
+const leftArm   = new Arm('left');
+const rightArm  = new Arm('right');
 const meteors   = new MeteorManager();
 const stardust  = new StardustManager();
 const hud       = new HUD();
@@ -66,7 +66,11 @@ const bgStars = (function () {
 let smoothLwx = 0, smoothLwy = 0;
 let smoothRwx = 0, smoothRwy = 0;
 const WRIST_SMOOTH = 10; // higher = smoother but more lag
-let lagScore = 0; // EMA of smoothing delta in pixels for HUD lag indicator
+let lagScore     = 0; // EMA of smoothing delta in pixels for HUD lag indicator
+let leftGrabbed  = null; // Stardust being held by left arm this frame
+let rightGrabbed = null; // Stardust being held by right arm this frame
+let lTargetX = 0, lTargetY = 0; // clamped arm targets shared between update and draw
+let rTargetX = 0, rTargetY = 0;
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -97,25 +101,35 @@ function checkCalibration() {
 
 // ─── Session lifecycle ────────────────────────────────────────────────────────
 function _applyCalibrationBounds() {
-  // goldenBounds are in raw camera X (0=left,1=right). We mirror X for display.
-  // Left wrist maxX = farthest right in raw = farthest LEFT in mirror
-  // Right wrist minX = farthest left in raw = farthest RIGHT in mirror
+  const W = canvas.width, H = canvas.height;
+
   const lValid = goldenBounds.left.maxX  > goldenBounds.left.minX;
   const rValid = goldenBounds.right.minX < goldenBounds.right.maxX;
 
-  const xMin = lValid ? (1 - goldenBounds.left.maxX)  * canvas.width  : canvas.width  * 0.08;
-  const xMax = rValid ? (1 - goldenBounds.right.minX) * canvas.width  : canvas.width  * 0.92;
-  const yMin = Math.min(
-    lValid ? goldenBounds.left.minY  * canvas.height : canvas.height * 0.1,
-    rValid ? goldenBounds.right.minY * canvas.height : canvas.height * 0.1
-  );
-  const yMax = canvas.height * 0.58;
+  // Set arm lengths proportional to calibrated wrist-reach span
+  const lSpan   = lValid ? (goldenBounds.left.maxX  - goldenBounds.left.minX)  * W : 0;
+  const rSpan   = rValid ? (goldenBounds.right.maxX - goldenBounds.right.minX) * W : 0;
+  const lArmLen = lSpan > 0 ? Math.max(160, Math.min(lSpan * 0.45, W * 0.32)) : 200;
+  const rArmLen = rSpan > 0 ? Math.max(160, Math.min(rSpan * 0.45, W * 0.32)) : 200;
+  leftArm.setMaxLength(lArmLen);
+  rightArm.setMaxLength(rArmLen);
+
+  const maxArmLen = Math.max(lArmLen, rArmLen);
+  const shipY     = H * 0.65;
+
+  // X bounds from calibration (mirrored)
+  const xMin = lValid ? (1 - goldenBounds.left.maxX)  * W : W * 0.08;
+  const xMax = rValid ? (1 - goldenBounds.right.minX) * W : W * 0.92;
+
+  // Y bounds: spawn stars within the arm's reach zone, close to the ship
+  const yMin = Math.max(40, shipY - maxArmLen * 0.90);
+  const yMax = Math.min(shipY - 60, shipY - maxArmLen * 0.10);
 
   stardust.setBounds(
-    Math.max(40, xMin - 20),
-    Math.min(canvas.width  - 40, xMax + 20),
-    Math.max(40, yMin),
-    yMax
+    Math.max(40,     xMin - 20),
+    Math.min(W - 40, xMax + 20),
+    yMin,
+    Math.max(yMin + 60, yMax),
   );
 }
 
@@ -166,13 +180,12 @@ function update(dt) {
   ship.lerpTo((1 - poseData.hipX) * canvas.width, dt);
   ship.update(dt);
 
-  // smooth wrist positions to remove MediaPipe jitter
+  // smooth wrist + elbow positions to remove MediaPipe jitter
   const t = Math.min(1, WRIST_SMOOTH * dt);
-  smoothLwx += ((1 - poseData.leftWrist.x)  * canvas.width  - smoothLwx) * t;
-  smoothLwy += (poseData.leftWrist.y         * canvas.height - smoothLwy) * t;
-  smoothRwx += ((1 - poseData.rightWrist.x) * canvas.width  - smoothRwx) * t;
-  smoothRwy += (poseData.rightWrist.y        * canvas.height - smoothRwy) * t;
-
+  smoothLwx += ((1 - poseData.leftWrist.x)   * canvas.width  - smoothLwx) * t;
+  smoothLwy += (poseData.leftWrist.y          * canvas.height - smoothLwy) * t;
+  smoothRwx += ((1 - poseData.rightWrist.x)  * canvas.width  - smoothRwx) * t;
+  smoothRwy += (poseData.rightWrist.y         * canvas.height - smoothRwy) * t;
   const targetLwx = (1 - poseData.leftWrist.x)  * canvas.width;
   const targetLwy = poseData.leftWrist.y         * canvas.height;
   const targetRwx = (1 - poseData.rightWrist.x) * canvas.width;
@@ -193,14 +206,30 @@ function update(dt) {
     if (hitCount >= MAX_HITS) { endSession(); return; }
   }
 
+  // Clamp arm targets: X stays on correct side of ship, Y never goes below ship
+  const armYMax = ship.y - 15;
+  lTargetX = Math.min(lwx, ship.x - 12);
+  lTargetY = Math.min(lwy, armYMax);
+  rTargetX = Math.max(rwx, ship.x + 12);
+  rTargetY = Math.min(rwy, armYMax);
+
+  // Compute actual arm-tip positions so star collision matches the visual arm
+  const leftTip  = leftArm.getTip(ship.x - 28, ship.y - 8, lTargetX, lTargetY);
+  const rightTip = rightArm.getTip(ship.x + 28, ship.y - 8, rTargetX, rTargetY);
+
   // J3.4 — stardust density scales with level
   const { collected, missed } = stardust.update(
     dt, canvas.width, canvas.height,
-    lwx, lwy, rwx, rwy, poseData.bubbleRadius
+    leftTip.x, leftTip.y, rightTip.x, rightTip.y, poseData.bubbleRadius,
+    ship.x, ship.y
   );
   if (missed > 0) {
     for (let i = 0; i < missed; i++) recordMiss();
   }
+
+  // track which star each arm is holding this frame (used in draw)
+  leftGrabbed  = stardust.getGrabbedBy('left');
+  rightGrabbed = stardust.getGrabbedBy('right');
 
   if (collected > 0) {
     score += collected;
@@ -504,15 +533,17 @@ function draw() {
   const lwx = smoothLwx, lwy = smoothLwy;
   const rwx = smoothRwx, rwy = smoothRwy;
 
-  stardust.draw(ctx);
   meteors.draw(ctx);
 
   // clamp so left arm never crosses right of ship and vice-versa
-  leftArm.draw(ctx,  ship.x - 28, ship.y - 8, Math.min(lwx, ship.x - 12), lwy);
-  rightArm.draw(ctx, ship.x + 28, ship.y - 8, Math.max(rwx, ship.x + 12), rwy);
+  leftArm.draw(ctx,  ship.x - 28, ship.y - 8, lTargetX, lTargetY,  leftGrabbed);
+  rightArm.draw(ctx, ship.x + 28, ship.y - 8, rTargetX, rTargetY, rightGrabbed);
 
   // J3.1 — ship renders with current skin
   ship.draw(ctx, getSkin());
+
+  // stars render in front of ship so they're always visible and grabbable
+  stardust.draw(ctx);
 
   // J3.2 — HUD: XP bar, level badge, score, timer, health
   hud.draw(ctx, canvas, {

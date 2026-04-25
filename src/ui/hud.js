@@ -1,4 +1,4 @@
-import { getLevel, getSkin, getXPProgress, isMaxLevel } from '../game/progression.js';
+import { getLevel, getXP, getSkin, getXPProgress, isMaxLevel } from '../game/progression.js';
 
 export class HUD {
   constructor() {
@@ -15,11 +15,21 @@ export class HUD {
     if (this.levelUpFlash > 0) this.levelUpFlash -= dt;
   }
 
-  draw(ctx, canvas, { score, hitCount, maxHits, sessionTimer, sessionDuration }) {
-    const W    = canvas.width;
-    const H    = canvas.height;
+  draw(ctx, canvas, {
+    score,
+    hitCount,
+    maxHits,
+    sessionTimer,
+    sessionDuration,
+    missCount = 0,
+    bubbleRadius = 120,
+    lagScore = 0,
+  }) {
+    const W   = canvas.width;
+    const H   = canvas.height;
     const skin = getSkin();
     const lvl  = getLevel();
+    const xp   = getXP();
 
     const timeLeft = Math.max(0, sessionDuration - sessionTimer);
     const mm = String(Math.floor(timeLeft / 60)).padStart(2, '0');
@@ -27,38 +37,87 @@ export class HUD {
 
     ctx.save();
 
-    // ── Score (top-left) ─────────────────────────────────────────────────────
-    ctx.font      = 'bold 20px monospace';
-    ctx.fillStyle = '#ffe080';
+    // ── "Nebula Navigator" title (top-left) ──────────────────────────────────
+    ctx.font      = 'bold 22px monospace';
+    ctx.fillStyle = '#00d8d8';
     ctx.textAlign = 'left';
-    ctx.fillText(`★ ${score}`, 20, 38);
+    ctx.shadowColor = 'rgba(0, 220, 220, 0.6)';
+    ctx.shadowBlur  = 10;
+    ctx.fillText('Nebula Navigator', 18, 36);
+    ctx.shadowBlur = 0;
 
-    // ── Timer (top-center) ───────────────────────────────────────────────────
+    // ── Timer (top-center) ────────────────────────────────────────────────────
     ctx.font      = 'bold 20px monospace';
     ctx.fillStyle = timeLeft < 20 ? '#ff4466' : '#c8b8ff';
     ctx.textAlign = 'center';
-    ctx.fillText(`${mm}:${ss}`, W / 2, 38);
+    ctx.fillText(`${mm}:${ss}`, W / 2, 36);
 
-    // ── Health pips (top-right) ──────────────────────────────────────────────
-    for (let i = 0; i < maxHits; i++) {
-      const alive = i < (maxHits - hitCount);
-      ctx.beginPath();
-      ctx.arc(W - 24 - i * 26, 28, 9, 0, Math.PI * 2);
-      ctx.fillStyle   = alive ? '#ff4466' : '#2a1a22';
-      ctx.fill();
-      ctx.strokeStyle = alive ? '#ff8899' : '#3a2a32';
-      ctx.lineWidth   = 1.5;
-      ctx.stroke();
-    }
+    // ── Stats panel (top-right) ───────────────────────────────────────────────
+    const panelW  = 196;
+    const panelH  = 174;
+    const panelX  = W - panelW - 14;
+    const panelY  = 10;
+    const pad     = 12;
 
-    // ── XP bar (bottom-center) ───────────────────────────────────────────────
+    // panel background
+    ctx.beginPath();
+    ctx.roundRect(panelX, panelY, panelW, panelH, 12);
+    ctx.fillStyle   = 'rgba(10, 4, 28, 0.78)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(100, 60, 200, 0.55)';
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+
+    // panel rows
+    const lagLabel =
+      lagScore < 30 ? 'Low' :
+      lagScore < 65 ? 'Med' :
+      'High';
+
+    const rows = [
+      { label: 'XP:',            value: String(xp) },
+      { label: 'LEVEL:',         value: `${lvl}${isMaxLevel() ? ' MAX' : ''}` },
+      { label: 'STARDUST MISS:', value: String(missCount) },
+      { label: 'METEOR HITS:',   value: String(hitCount) },
+      { label: 'ROM Bubble:',    value: bubbleRadius < 100 ? 'Low' : 'Opt' },
+      { label: 'Lag:',           value: lagLabel },
+    ];
+
+    ctx.font         = '12px monospace';
+    ctx.textBaseline = 'middle';
+    const rowH = (panelH - pad * 2) / rows.length;
+
+    rows.forEach(({ label, value }, i) => {
+      const ry = panelY + pad + rowH * i + rowH * 0.5;
+
+      // label
+      ctx.fillStyle = 'rgba(160, 140, 220, 0.85)';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, panelX + pad, ry);
+
+      // value
+      ctx.fillStyle = '#e8e0ff';
+      ctx.textAlign = 'right';
+      ctx.fillText(value, panelX + panelW - pad, ry);
+    });
+
+    // divider line after LEVEL row
+    ctx.beginPath();
+    ctx.moveTo(panelX + pad, panelY + pad + rowH * 2);
+    ctx.lineTo(panelX + panelW - pad, panelY + pad + rowH * 2);
+    ctx.strokeStyle = 'rgba(100, 80, 200, 0.3)';
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+
+    ctx.textBaseline = 'alphabetic';
+
+    // ── XP bar (bottom-center) ─────────────────────────────────────────────────
     const barW = Math.min(W * 0.5, 420);
     const barH = 10;
     const barX = (W - barW) / 2;
     const barY = H - 34;
     const xpPct = getXPProgress();
 
-    // track
     ctx.beginPath();
     ctx.roundRect(barX, barY, barW, barH, 5);
     ctx.fillStyle = 'rgba(255,255,255,0.07)';
@@ -67,7 +126,6 @@ export class HUD {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // fill
     if (xpPct > 0) {
       const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
       grad.addColorStop(0, skin.stroke);
@@ -78,20 +136,17 @@ export class HUD {
       ctx.fill();
     }
 
-    // level badge (left of bar)
     ctx.font      = 'bold 13px monospace';
     ctx.fillStyle = skin.stroke;
     ctx.textAlign = 'right';
     ctx.fillText(`LV${lvl}`, barX - 8, barY + 9);
 
-    // skin name (right of bar)
     ctx.font      = '12px monospace';
     ctx.fillStyle = 'rgba(200,180,255,0.55)';
     ctx.textAlign = 'left';
-    const label = isMaxLevel() ? `${skin.name}  MAX` : skin.name;
-    ctx.fillText(label, barX + barW + 8, barY + 9);
+    ctx.fillText(isMaxLevel() ? `${skin.name}  MAX` : skin.name, barX + barW + 8, barY + 9);
 
-    // ── Level-up flash overlay ───────────────────────────────────────────────
+    // ── Level-up flash overlay ─────────────────────────────────────────────────
     if (this.levelUpFlash > 0) {
       const t     = Math.min(1, this.levelUpFlash / 2.0);
       const alpha = t * 0.4;
@@ -105,7 +160,7 @@ export class HUD {
       ctx.fillStyle = `rgba(255,255,255,${t})`;
       ctx.fillText(`LEVEL ${this.levelUpNum}!`, W / 2, H / 2 - 18);
 
-      ctx.font      = `20px monospace`;
+      ctx.font      = '20px monospace';
       ctx.fillStyle = `rgba(220,200,255,${t * 0.9})`;
       ctx.fillText(`${getSkin().name} skin unlocked`, W / 2, H / 2 + 28);
     }

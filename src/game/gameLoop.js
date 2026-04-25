@@ -2,6 +2,8 @@ import { Ship }           from './ship.js';
 import { Arm }            from './arm.js';
 import { MeteorManager }  from './meteor.js';
 import { StardustManager } from './stardust.js';
+import { addXP, getLevel, getSkin, reset as resetProgression } from './progression.js';
+import { HUD }            from '../ui/hud.js';
 
 // ─── Pose Interface Stub ──────────────────────────────────────────────────────
 // Matches the poseInterface.js contract agreed with Markaelo.
@@ -25,62 +27,54 @@ export const GameState = {
 
 let state = GameState.IDLE;
 
-function setState(next) {
-  state = next;
-}
+function setState(next) { state = next; }
 
 // ─── Canvas Setup ─────────────────────────────────────────────────────────────
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 
 // ─── Game Objects ─────────────────────────────────────────────────────────────
-const ship    = new Ship(0, 0);
+const ship     = new Ship(0, 0);
 const leftArm  = new Arm();
 const rightArm = new Arm();
 const meteors  = new MeteorManager();
 const stardust = new StardustManager();
+const hud      = new HUD();
 
 // ─── Session State ────────────────────────────────────────────────────────────
 const MAX_HITS    = 3;
 const SESSION_SEC = 120;
 
-let score         = 0;
-let hitCount      = 0;
-let sessionTimer  = 0;
-let rafId         = null;
-let lastTime      = 0;
+let score        = 0;
+let hitCount     = 0;
+let sessionTimer = 0;
+let rafId        = null;
+let lastTime     = 0;
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Space') return;
   e.preventDefault();
 
-  if (state === GameState.IDLE) {
-    setState(GameState.CALIBRATING);
-
-  } else if (state === GameState.CALIBRATING) {
-    // Dev bypass: Space skips calibration when poseInterface isn't live yet
-    startSession();
-
-  } else if (state === GameState.ENDED) {
-    resetSession();
-    setState(GameState.IDLE);
-  }
+  if      (state === GameState.IDLE)        setState(GameState.CALIBRATING);
+  else if (state === GameState.CALIBRATING) startSession();   // dev bypass
+  else if (state === GameState.ENDED)     { resetSession(); setState(GameState.IDLE); }
 });
 
-// Auto-advance calibrating → playing once Markaelo's isCalibrated flag flips
 function checkCalibration() {
-  if (state === GameState.CALIBRATING && poseData.isCalibrated) {
-    startSession();
-  }
+  if (state === GameState.CALIBRATING && poseData.isCalibrated) startSession();
 }
 
+// ─── Session lifecycle ────────────────────────────────────────────────────────
 function startSession() {
   score        = 0;
   hitCount     = 0;
   sessionTimer = 0;
   meteors.reset();
   stardust.reset();
+  meteors.setLevel(1);
+  stardust.setLevel(1);
+  resetProgression();
   setState(GameState.PLAYING);
 }
 
@@ -104,23 +98,23 @@ function resize() {
 // ─── Update ───────────────────────────────────────────────────────────────────
 function update(dt) {
   checkCalibration();
-
   if (state !== GameState.PLAYING) return;
+
+  hud.update(dt);
 
   sessionTimer += dt;
   if (sessionTimer >= SESSION_SEC) { endSession(); return; }
 
-  // J2.1 — ship follows hipX with lerp
+  // ship follows hipX with lerp (J2.1 / J3.1)
   ship.lerpTo(poseData.hipX * canvas.width, dt);
   ship.update(dt);
 
-  // wrist pixel positions for stardust proximity checks
   const lwx = poseData.leftWrist.x  * canvas.width;
   const lwy = poseData.leftWrist.y  * canvas.height;
   const rwx = poseData.rightWrist.x * canvas.width;
   const rwy = poseData.rightWrist.y * canvas.height;
 
-  // meteors
+  // J3.3 — meteors scale with level
   const hits = meteors.update(dt, canvas.width, canvas.height, ship);
   if (hits > 0) {
     hitCount += hits;
@@ -128,39 +122,30 @@ function update(dt) {
     if (hitCount >= MAX_HITS) { endSession(); return; }
   }
 
-  // stardust
+  // J3.4 — stardust density scales with level
   const collected = stardust.update(
     dt, canvas.width, canvas.height,
     lwx, lwy, rwx, rwy, poseData.bubbleRadius
   );
-  score += collected;
+
+  if (collected > 0) {
+    score += collected;
+
+    // J3.1 — award XP, check for level-up
+    const leveledUp = addXP(collected);
+    if (leveledUp) {
+      const lvl = getLevel();
+      meteors.setLevel(lvl);   // J3.3
+      stardust.setLevel(lvl);  // J3.4
+      hud.triggerLevelUp(lvl);
+    }
+  }
 }
 
-// ─── Draw helpers ─────────────────────────────────────────────────────────────
+// ─── Draw ─────────────────────────────────────────────────────────────────────
 function drawBackground() {
   ctx.fillStyle = '#05050f';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-function drawHud() {
-  const timeLeft = Math.max(0, SESSION_SEC - sessionTimer);
-  const mm = String(Math.floor(timeLeft / 60)).padStart(2, '0');
-  const ss = String(Math.floor(timeLeft % 60)).padStart(2, '0');
-
-  ctx.save();
-  ctx.font      = 'bold 18px monospace';
-  ctx.fillStyle = '#c8b8ff';
-  ctx.fillText(`★ ${score}`, 20, 36);
-  ctx.fillText(`${mm}:${ss}`, canvas.width / 2 - 28, 36);
-
-  // health pips
-  for (let i = 0; i < MAX_HITS; i++) {
-    ctx.fillStyle = i < (MAX_HITS - hitCount) ? '#ff4466' : '#333';
-    ctx.beginPath();
-    ctx.arc(canvas.width - 30 - i * 24, 28, 8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
 }
 
 function drawOverlay(title, subtitle) {
@@ -179,7 +164,6 @@ function drawOverlay(title, subtitle) {
   ctx.restore();
 }
 
-// ─── Draw ─────────────────────────────────────────────────────────────────────
 function draw() {
   drawBackground();
 
@@ -205,8 +189,17 @@ function draw() {
   leftArm.draw(ctx,  ship.x - 28, ship.y - 8, lwx, lwy);
   rightArm.draw(ctx, ship.x + 28, ship.y - 8, rwx, rwy);
 
-  ship.draw(ctx);
-  drawHud();
+  // J3.1 — ship renders with current skin
+  ship.draw(ctx, getSkin());
+
+  // J3.2 — HUD: XP bar, level badge, score, timer, health
+  hud.draw(ctx, canvas, {
+    score,
+    hitCount,
+    maxHits:         MAX_HITS,
+    sessionTimer,
+    sessionDuration: SESSION_SEC,
+  });
 
   if (state === GameState.ENDED) {
     const reason = hitCount >= MAX_HITS ? 'Ship destroyed!' : 'Session complete!';

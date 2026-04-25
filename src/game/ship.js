@@ -20,15 +20,20 @@ export class Ship {
     if (this.hitFlash > 0) this.hitFlash -= dt;
   }
 
-  draw(ctx) {
+  // skin: { hull, stroke, wing, cockpit } — comes from progression.getSkin()
+  draw(ctx, skin = null) {
+    const s = skin ?? { hull: '#1e1560', stroke: '#7b5cff', wing: '#3a2a7a', cockpit: '#4020a0' };
     const { x, y, width, height } = this;
+    const hullColor   = this.hitFlash > 0 ? '#601530' : s.hull;
+    const strokeColor = this.hitFlash > 0 ? '#ff4466' : s.stroke;
+
     ctx.save();
     ctx.translate(x, y);
 
     // engine glow
     const glowGrad = ctx.createRadialGradient(0, height * 0.45, 2, 0, height * 0.45, 22);
-    glowGrad.addColorStop(0, 'rgba(100, 60, 255, 0.9)');
-    glowGrad.addColorStop(1, 'rgba(100, 60, 255, 0)');
+    glowGrad.addColorStop(0, s.stroke + 'cc');
+    glowGrad.addColorStop(1, s.stroke + '00');
     ctx.beginPath();
     ctx.ellipse(0, height * 0.45, 10, 22, 0, 0, Math.PI * 2);
     ctx.fillStyle = glowGrad;
@@ -40,10 +45,10 @@ export class Ship {
     ctx.lineTo(-width * 0.55, height * 0.4);
     ctx.lineTo(-width * 0.2, height * 0.35);
     ctx.closePath();
-    ctx.fillStyle = '#3a2a7a';
+    ctx.fillStyle   = s.wing;
     ctx.fill();
-    ctx.strokeStyle = '#7b5cff';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth   = 1.5;
     ctx.stroke();
 
     // right wing
@@ -52,10 +57,10 @@ export class Ship {
     ctx.lineTo(width * 0.55, height * 0.4);
     ctx.lineTo(width * 0.2, height * 0.35);
     ctx.closePath();
-    ctx.fillStyle = '#3a2a7a';
+    ctx.fillStyle   = s.wing;
     ctx.fill();
-    ctx.strokeStyle = '#7b5cff';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth   = 1.5;
     ctx.stroke();
 
     // main hull
@@ -63,10 +68,10 @@ export class Ship {
     ctx.moveTo(0, -height * 0.5);
     ctx.bezierCurveTo(width * 0.35, -height * 0.2, width * 0.3, height * 0.25, 0, height * 0.5);
     ctx.bezierCurveTo(-width * 0.3, height * 0.25, -width * 0.35, -height * 0.2, 0, -height * 0.5);
-    ctx.fillStyle = this.hitFlash > 0 ? '#601530' : '#1e1560';
+    ctx.fillStyle   = hullColor;
     ctx.fill();
-    ctx.strokeStyle = this.hitFlash > 0 ? '#ff4466' : '#7b5cff';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth   = 2;
     ctx.stroke();
 
     // cockpit
@@ -74,11 +79,11 @@ export class Ship {
     ctx.ellipse(0, -height * 0.15, width * 0.15, height * 0.18, 0, 0, Math.PI * 2);
     const cockpitGrad = ctx.createRadialGradient(-3, -height * 0.2, 1, 0, -height * 0.15, width * 0.15);
     cockpitGrad.addColorStop(0, '#c8b8ff');
-    cockpitGrad.addColorStop(1, '#4020a0');
-    ctx.fillStyle = cockpitGrad;
+    cockpitGrad.addColorStop(1, s.cockpit);
+    ctx.fillStyle   = cockpitGrad;
     ctx.fill();
-    ctx.strokeStyle = '#a080ff';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = s.stroke + 'cc';
+    ctx.lineWidth   = 1.5;
     ctx.stroke();
 
     ctx.restore();

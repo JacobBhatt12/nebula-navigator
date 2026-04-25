@@ -1,21 +1,20 @@
 const XP_PER_STAR = 10;
 
-// Cumulative XP required to reach each level index (index 0 = level 1 start)
 const THRESHOLDS = [0, 50, 120, 210, 320, 450];
 
+// hull/stroke → ship body color; wing → side pods; cockpit → dome
 export const SKINS = [
-  { name: 'Cadet',     hull: '#1e1560', stroke: '#7b5cff', wing: '#3a2a7a', cockpit: '#4020a0' },
-  { name: 'Voyager',   hull: '#0a2a5a', stroke: '#40a0ff', wing: '#1a3a6a', cockpit: '#0040a0' },
-  { name: 'Sunfire',   hull: '#3a2000', stroke: '#ffaa00', wing: '#5a3000', cockpit: '#8a4000' },
-  { name: 'Crimson',   hull: '#3a0010', stroke: '#ff2050', wing: '#4a0020', cockpit: '#700020' },
-  { name: 'Phantom',   hull: '#003a3a', stroke: '#00ffcc', wing: '#005050', cockpit: '#007060' },
-  { name: 'Prismatic', hull: '#2a0050', stroke: '#ff80ff', wing: '#3a0060', cockpit: '#600080' },
+  { name: 'Cadet',     hull: '#e86020', stroke: '#ff9040', wing: '#1a4a7a', cockpit: '#2080c8' },
+  { name: 'Voyager',   hull: '#d82020', stroke: '#ff5050', wing: '#6a0a20', cockpit: '#c01040' },
+  { name: 'Sunfire',   hull: '#d89000', stroke: '#ffe040', wing: '#6a4400', cockpit: '#a07000' },
+  { name: 'Verdant',   hull: '#208050', stroke: '#40e880', wing: '#0a4020', cockpit: '#106040' },
+  { name: 'Phantom',   hull: '#007898', stroke: '#00d8d8', wing: '#003858', cockpit: '#005070' },
+  { name: 'Prismatic', hull: '#8020a0', stroke: '#d060ff', wing: '#400060', cockpit: '#600080' },
 ];
 
 let xp    = 0;
 let level = 1;
 
-// Returns true if a level-up occurred
 export function addXP(stars) {
   xp += stars * XP_PER_STAR;
   const prev = level;

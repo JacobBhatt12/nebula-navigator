@@ -1,19 +1,38 @@
-const HOLD_DURATION = 1.5; // seconds wrist must stay inside bubble to collect
+const HOLD_DURATION = 1.5;   // seconds wrist must stay inside bubble to collect
+const STAR_LIFETIME = 8.0;   // seconds before a star expires (miss)
+
+const PALETTES = [
+  { fill: '#ffe040', stroke: '#ffaa00', face: '#a06000', blush: '#ffb060' }, // yellow
+  { fill: '#60e880', stroke: '#20b840', face: '#0a6020', blush: '#80e8a0' }, // green
+  { fill: '#40d8d8', stroke: '#00a8b8', face: '#005060', blush: '#60e0e0' }, // teal
+  { fill: '#ff88cc', stroke: '#d040a0', face: '#800040', blush: '#ffaada' }, // pink
+];
 
 export class Stardust {
   constructor(x, y) {
     this.x          = x;
     this.y          = y;
-    this.radius     = 20;
+    this.radius     = 22;
     this.holdTimer  = 0;
+    this.lifeTimer  = 0;
     this.collected  = false;
-    this.pulse      = Math.random() * Math.PI * 2; // phase offset for glow animation
+    this.expired    = false;
+    this.pulse      = Math.random() * Math.PI * 2;
+    this.palette    = PALETTES[Math.floor(Math.random() * PALETTES.length)];
+    this._spin      = 0;
   }
 
   update(dt, lwx, lwy, rwx, rwy, bubbleRadius) {
-    if (this.collected) return;
+    if (this.collected || this.expired) return;
 
-    this.pulse += dt * 3;
+    this.pulse     += dt * 2.8;
+    this._spin     += dt * 0.6;
+    this.lifeTimer += dt;
+
+    if (this.lifeTimer >= STAR_LIFETIME) {
+      this.expired = true;
+      return;
+    }
 
     const inRange =
       Math.hypot(lwx - this.x, lwy - this.y) < bubbleRadius ||
@@ -23,67 +42,130 @@ export class Stardust {
       this.holdTimer += dt;
       if (this.holdTimer >= HOLD_DURATION) this.collected = true;
     } else {
-      // decay twice as fast as it fills so a near-miss feels fair
       this.holdTimer = Math.max(0, this.holdTimer - dt * 2);
     }
   }
 
-  get progress() {
-    return Math.min(1, this.holdTimer / HOLD_DURATION);
-  }
+  get progress()   { return Math.min(1, this.holdTimer / HOLD_DURATION); }
+  get timeLeft()   { return Math.max(0, STAR_LIFETIME - this.lifeTimer); }
 
   draw(ctx) {
-    const { x, y, radius, pulse, progress } = this;
-    const glow = 0.6 + 0.4 * Math.sin(pulse);
+    const { x, y, radius: r, pulse, _spin, palette, timeLeft } = this;
+    const glow = 0.65 + 0.35 * Math.sin(pulse);
+
+    // urgency flicker when < 3 seconds left
+    const urgent = timeLeft < 3;
+    const urgentAlpha = urgent ? 0.7 + 0.3 * Math.sin(pulse * 6) : 1;
 
     ctx.save();
+    ctx.globalAlpha = urgentAlpha;
 
-    // outer glow ring
-    const outerGrad = ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2.2);
-    outerGrad.addColorStop(0, `rgba(255, 220, 80, ${0.25 * glow})`);
-    outerGrad.addColorStop(1, 'rgba(255, 180, 0, 0)');
+    // outer glow
+    const outerGrad = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 2.4);
+    outerGrad.addColorStop(0, palette.fill + Math.round(0.3 * glow * 255).toString(16).padStart(2, '0'));
+    outerGrad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.beginPath();
-    ctx.arc(x, y, radius * 2.2, 0, Math.PI * 2);
+    ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
     ctx.fillStyle = outerGrad;
     ctx.fill();
 
-    // core orb
-    const coreGrad = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, 1, x, y, radius);
-    coreGrad.addColorStop(0, `rgba(255, 255, 200, ${glow})`);
-    coreGrad.addColorStop(0.5, `rgba(255, 200, 50, ${0.9 * glow})`);
-    coreGrad.addColorStop(1, `rgba(200, 120, 0, ${0.7 * glow})`);
+    // 5-point star body (rotated slowly)
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(_spin);
+    _drawStarPath(ctx, 0, 0, r, r * 0.42, 5);
+    const bodyGrad = ctx.createRadialGradient(-r * 0.25, -r * 0.3, 2, 0, 0, r);
+    bodyGrad.addColorStop(0,   _lighten(palette.fill, 0.35));
+    bodyGrad.addColorStop(0.5, palette.fill);
+    bodyGrad.addColorStop(1,   palette.stroke);
+    ctx.fillStyle   = bodyGrad;
+    ctx.fill();
+    ctx.strokeStyle = palette.stroke;
+    ctx.lineWidth   = 2;
+    ctx.lineJoin    = 'round';
+    ctx.stroke();
+    ctx.restore();
+
+    // kawaii face (always upright)
+    const eyeY  = y - r * 0.06;
+    const eyeOff = r * 0.28;
+    const eyeR  = r * 0.11;
+
+    // blush cheeks
     ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = coreGrad;
+    ctx.ellipse(x - eyeOff * 1.2, eyeY + r * 0.22, r * 0.14, r * 0.08, 0, 0, Math.PI * 2);
+    ctx.fillStyle = palette.blush + '80';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x + eyeOff * 1.2, eyeY + r * 0.22, r * 0.14, r * 0.08, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 4-point star sparkle
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.7 * glow})`;
-    for (let i = 0; i < 4; i++) {
-      const angle = (i / 4) * Math.PI * 2 + pulse * 0.2;
-      const len   = radius * 1.4;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 2, len * 0.4, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
+    // eyes
+    ctx.fillStyle = palette.face;
+    ctx.beginPath();
+    ctx.ellipse(x - eyeOff, eyeY, eyeR, eyeR * 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x + eyeOff, eyeY, eyeR, eyeR * 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-    // hold-progress arc
-    if (progress > 0) {
+    // eye glints
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath(); ctx.arc(x - eyeOff + eyeR * 0.4, eyeY - eyeR * 0.35, eyeR * 0.35, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + eyeOff + eyeR * 0.4, eyeY - eyeR * 0.35, eyeR * 0.35, 0, Math.PI * 2); ctx.fill();
+
+    // smile
+    ctx.beginPath();
+    ctx.arc(x, eyeY + r * 0.22, r * 0.22, 0.15, Math.PI - 0.15);
+    ctx.strokeStyle = palette.face;
+    ctx.lineWidth   = r * 0.10;
+    ctx.lineCap     = 'round';
+    ctx.stroke();
+
+    // ── countdown text ──────────────────────────────────────────────────────────
+    const secsLeft = Math.ceil(timeLeft);
+    ctx.font         = `bold ${Math.round(r * 0.72)}px monospace`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle    = urgent ? '#ff4466' : palette.face;
+    ctx.fillText(`${secsLeft}s`, x, y + r * 1.78);
+
+    // ── hold-progress arc ───────────────────────────────────────────────────────
+    if (this.progress > 0) {
       ctx.beginPath();
-      ctx.arc(x, y, radius + 7, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
-      ctx.strokeStyle = `rgba(80, 220, 255, ${0.5 + 0.5 * progress})`;
-      ctx.lineWidth   = 3;
+      ctx.arc(x, y, r + 8, -Math.PI / 2, -Math.PI / 2 + this.progress * Math.PI * 2);
+      ctx.strokeStyle = `rgba(80, 220, 255, ${0.5 + 0.5 * this.progress})`;
+      ctx.lineWidth   = 3.5;
       ctx.lineCap     = 'round';
       ctx.stroke();
     }
 
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 }
+
+function _drawStarPath(ctx, cx, cy, outerR, innerR, points) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const angle = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+    const r     = i % 2 === 0 ? outerR : innerR;
+    const px    = cx + Math.cos(angle) * r;
+    const py    = cy + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
+function _lighten(hex, amt) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = Math.min(255, ((n >> 16) & 255) + Math.round(amt * 255));
+  const g = Math.min(255, ((n >> 8)  & 255) + Math.round(amt * 255));
+  const b = Math.min(255, ( n        & 255) + Math.round(amt * 255));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export class StardustManager {
   constructor() {
@@ -91,16 +173,27 @@ export class StardustManager {
     this.spawnTimer    = 0;
     this.spawnInterval = 3.5;
     this.maxTargets    = 3;
+    this.bounds        = null;
+    this.totalMisses   = 0;
   }
 
-  // Returns number of targets collected this frame
+  setBounds(xMin, xMax, yMin, yMax) {
+    this.bounds = { xMin, xMax, yMin, yMax };
+  }
+
+  // Returns { collected, missed } counts for this frame
   update(dt, canvasWidth, canvasHeight, lwx, lwy, rwx, rwy, bubbleRadius) {
     this.spawnTimer += dt;
     if (this.spawnTimer >= this.spawnInterval && this.targets.length < this.maxTargets) {
       this.spawnTimer = 0;
+      const b  = this.bounds;
+      const x0 = b ? b.xMin : 80;
+      const x1 = b ? b.xMax : canvasWidth  - 80;
+      const y0 = b ? b.yMin : 80;
+      const y1 = b ? b.yMax : canvasHeight * 0.55;
       this.targets.push(new Stardust(
-        80 + Math.random() * (canvasWidth  - 160),
-        80 + Math.random() * (canvasHeight * 0.55)
+        x0 + Math.random() * (x1 - x0),
+        y0 + Math.random() * (y1 - y0)
       ));
     }
 
@@ -109,8 +202,11 @@ export class StardustManager {
     }
 
     const collected = this.targets.filter(t => t.collected).length;
-    this.targets    = this.targets.filter(t => !t.collected);
-    return collected;
+    const missed    = this.targets.filter(t => t.expired).length;
+    this.totalMisses += missed;
+    this.targets = this.targets.filter(t => !t.collected && !t.expired);
+
+    return { collected, missed };
   }
 
   draw(ctx) {
@@ -118,11 +214,11 @@ export class StardustManager {
   }
 
   reset() {
-    this.targets    = [];
-    this.spawnTimer = 0;
+    this.targets     = [];
+    this.spawnTimer  = 0;
+    this.totalMisses = 0;
   }
 
-  // Increase density per level (Phase 3)
   setLevel(level) {
     this.spawnInterval = Math.max(1.5, 3.5 - (level - 1) * 0.3);
     this.maxTargets    = Math.min(6, 3 + Math.floor((level - 1) / 2));

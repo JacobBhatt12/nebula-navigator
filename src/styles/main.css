@@ -8,7 +8,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #05050f;
+  background: #0d0520;
 }
 
 #gameCanvas {
@@ -19,14 +19,21 @@ html, body {
 
 #webcam {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
-  width: 180px;
-  height: 135px;
-  border: 2px solid rgba(120, 80, 255, 0.5);
-  border-radius: 8px;
+  bottom: 20px;
+  left: 20px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 210, 210, 0.85);
   object-fit: cover;
   transform: scaleX(-1);
-  opacity: 0.85;
+  opacity: 0.92;
   z-index: 10;
+  transition: opacity 0.3s;
+  box-shadow: 0 0 16px rgba(0, 210, 210, 0.4);
+}
+
+body.calibrating #webcam {
+  opacity: 0;
+  pointer-events: none;
 }

@@ -1,4 +1,5 @@
 import { updatePoseData } from './poseInterface.js';
+import { recordFrame, normalizeWrist, getPhase } from './calibration.js';
 
 // MediaPipe landmark indices
 const HIP_LEFT   = 23;
@@ -57,17 +58,24 @@ function processFrame() {
   if (result.landmarks && result.landmarks.length > 0) {
     const lm = result.landmarks[0];
 
-    const hipX = ((lm[HIP_LEFT].x + lm[HIP_RIGHT].x) / 2);
+    const hipX     = (lm[HIP_LEFT].x + lm[HIP_RIGHT].x) / 2;
+    const rawLeft  = { x: lm[WRIST_LEFT].x,  y: lm[WRIST_LEFT].y  };
+    const rawRight = { x: lm[WRIST_RIGHT].x, y: lm[WRIST_RIGHT].y };
 
-    const leftWrist  = { x: lm[WRIST_LEFT].x,  y: lm[WRIST_LEFT].y  };
-    const rightWrist = { x: lm[WRIST_RIGHT].x, y: lm[WRIST_RIGHT].y };
+    // Feed raw coords into calibration scan (no-op when not scanning).
+    recordFrame(rawLeft, rawRight);
 
-    updatePoseData({ hipX, leftWrist, rightWrist, isCalibrated: true });
+    const calibrated  = getPhase() === 'done';
+    const leftWrist   = calibrated ? normalizeWrist(rawLeft,  'left')  : rawLeft;
+    const rightWrist  = calibrated ? normalizeWrist(rawRight, 'right') : rawRight;
+
+    updatePoseData({ hipX, leftWrist, rightWrist, isCalibrated: calibrated });
 
     console.log(
       `[PoseEngine] leftWrist=(${leftWrist.x.toFixed(3)}, ${leftWrist.y.toFixed(3)})` +
       `  rightWrist=(${rightWrist.x.toFixed(3)}, ${rightWrist.y.toFixed(3)})` +
-      `  hipX=${hipX.toFixed(3)}`
+      `  hipX=${hipX.toFixed(3)}` +
+      (calibrated ? '' : '  [pre-calibration raw]')
     );
   }
 

@@ -1,0 +1,32 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05050f;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#webcam {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  width: 180px;
+  height: 135px;
+  border: 2px solid rgba(120, 80, 255, 0.5);
+  border-radius: 8px;
+  object-fit: cover;
+  transform: scaleX(-1);
+  opacity: 0.85;
+  z-index: 10;
+}

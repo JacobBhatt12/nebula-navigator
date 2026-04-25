@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tracking Test — Nebula Navigator</title>
+  <style>
+    body { background: #0a0a1a; color: #e0e0ff; font-family: monospace; padding: 24px; }
+    h2   { color: #7eb8ff; margin-bottom: 8px; }
+    #status   { color: #ffd700; margin-bottom: 16px; font-size: 1.1em; }
+    #coords   { line-height: 2; font-size: 1em; }
+    #bar      { background: #1a1a3a; border-radius: 8px; padding: 12px 16px; margin-top: 16px; max-width: 420px; }
+    .label    { color: #888; }
+    .val      { color: #7eff9e; font-weight: bold; }
+    #progress { width: 100%; height: 12px; background: #1a1a3a; border-radius: 6px; margin-top: 8px; }
+    #fill     { height: 100%; border-radius: 6px; background: #7eb8ff; width: 0%; transition: width 0.1s; }
+  </style>
+</head>
+<body>
+  <h2>Nebula Navigator — Tracking Test</h2>
+  <div id="status">Loading MediaPipe…</div>
+  <div id="progress"><div id="fill"></div></div>
+  <div id="bar">
+    <div><span class="label">hipX:         </span><span class="val" id="hipX">–</span></div>
+    <div><span class="label">leftWrist:    </span><span class="val" id="lw">–</span></div>
+    <div><span class="label">rightWrist:   </span><span class="val" id="rw">–</span></div>
+    <div><span class="label">bubbleRadius: </span><span class="val" id="br">–</span></div>
+    <div><span class="label">isCalibrated: </span><span class="val" id="cal">false</span></div>
+  </div>
+
+  <script type="module">
+    import { initPoseEngine } from './poseEngine.js';
+    import { runCalibration } from './calibration.js';
+    import { poseData } from './poseInterface.js';
+    import { recordMiss, resetMissCount } from './adaptiveBubble.js';
+
+    const status = document.getElementById('status');
+    const fill   = document.getElementById('fill');
+
+    await initPoseEngine();
+    status.textContent = 'Webcam live — starting 10-sec Reach Scan. Reach to all corners!';
+
+    // Calibration countdown
+    const DURATION = 10_000;
+    const start = performance.now();
+    const ticker = setInterval(() => {
+      const elapsed = performance.now() - start;
+      const pct = Math.min(100, (elapsed / DURATION) * 100);
+      fill.style.width = pct + '%';
+      const left = Math.ceil((DURATION - elapsed) / 1000);
+      status.textContent = `Reach Scan — ${left}s remaining. Stretch arms to all corners!`;
+    }, 100);
+
+    await runCalibration(DURATION);
+    clearInterval(ticker);
+    fill.style.width = '100%';
+    status.textContent = 'Calibrated! Tracking live. Press M to simulate a miss.';
+
+    // Live readout
+    setInterval(() => {
+      document.getElementById('hipX').textContent = poseData.hipX.toFixed(3);
+      document.getElementById('lw').textContent =
+        `x=${poseData.leftWrist.x.toFixed(3)}  y=${poseData.leftWrist.y.toFixed(3)}`;
+      document.getElementById('rw').textContent =
+        `x=${poseData.rightWrist.x.toFixed(3)}  y=${poseData.rightWrist.y.toFixed(3)}`;
+      document.getElementById('br').textContent  = poseData.bubbleRadius + 'px';
+      document.getElementById('cal').textContent = String(poseData.isCalibrated);
+    }, 80);
+
+    // Keyboard shortcuts for manual testing
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'm' || e.key === 'M') {
+        recordMiss();
+        status.textContent = `Miss recorded! bubbleRadius = ${poseData.bubbleRadius}px`;
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        resetMissCount();
+        status.textContent = 'Reset! bubbleRadius restored to 120px';
+      }
+    });
+  </script>
+</body>
+</html>

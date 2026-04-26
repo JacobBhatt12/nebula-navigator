@@ -118,6 +118,8 @@ let lTargetX = 0, lTargetY = 0; // clamped arm targets shared between update and
 let rTargetX = 0, rTargetY = 0;
 let reportPending = false;
 let recordingRetryTimer = null;
+const STANDING_STEER_GAIN = 1.0;
+const WHEELCHAIR_STEER_GAIN = 1.85;
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -238,6 +240,11 @@ function _startSessionRecordingWithRetry(attempt = 0) {
   }, 350);
 }
 
+function _applySteeringGain(rawX, gain) {
+  const centered = (rawX - 0.5) * gain + 0.5;
+  return Math.min(1, Math.max(0, centered));
+}
+
 // ─── Resize ───────────────────────────────────────────────────────────────────
 function resize() {
   canvas.width  = window.innerWidth;
@@ -259,7 +266,9 @@ function update(dt) {
   if (sessionTimer >= SESSION_SEC) { endSession(); return; }
 
   // flip X to match mirrored webcam display (scaleX(-1) in CSS)
-  const steeringX = movementMode === MovementMode.WHEELCHAIR ? poseData.neckX : poseData.torsoX;
+  const rawSteeringX = movementMode === MovementMode.WHEELCHAIR ? poseData.neckX : poseData.torsoX;
+  const steerGain = movementMode === MovementMode.WHEELCHAIR ? WHEELCHAIR_STEER_GAIN : STANDING_STEER_GAIN;
+  const steeringX = _applySteeringGain(rawSteeringX, steerGain);
   ship.lerpTo((1 - steeringX) * canvas.width, dt);
   ship.update(dt);
 

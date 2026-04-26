@@ -18,10 +18,7 @@ html, body {
   image-rendering: crisp-edges;
 }
 
-#root {
-  width: 100%;
-  height: 100%;
-}
+#root { width: 100%; height: 100%; }
 
 #gameCanvas {
   display: block;
@@ -47,52 +44,229 @@ html, body {
   image-rendering: pixelated;
 }
 
-body.calibrating #webcam {
-  opacity: 0;
-  pointer-events: none;
-}
+body.calibrating #webcam { opacity: 0; pointer-events: none; }
 
+/* ── Boot screen ───────────────────────────────────────────────────────────── */
 @keyframes nebulaScan {
-  0% { transform: translateY(-100%); opacity: 0.2; }
-  40% { opacity: 0.45; }
-  100% { transform: translateY(100%); opacity: 0.12; }
+  0%   { transform: translateY(-100%); opacity: 0.2; }
+  40%  { opacity: 0.45; }
+  100% { transform: translateY(100%);  opacity: 0.12; }
 }
-
 @keyframes nebulaFill {
-  0% { width: 0%; }
-  30% { width: 38%; }
-  75% { width: 84%; }
+  0%   { width: 0%; }
+  30%  { width: 38%; }
+  75%  { width: 84%; }
   100% { width: 100%; }
 }
-
 @keyframes nebulaFadeUp {
-  0% { opacity: 0; transform: translateY(18px) scale(0.99); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0%   { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 .nebula-boot-scanline {
-  background: linear-gradient(
-    to bottom,
-    rgba(34, 211, 238, 0) 0%,
-    rgba(34, 211, 238, 0.28) 50%,
-    rgba(34, 211, 238, 0) 100%
-  );
+  background: linear-gradient(to bottom,
+    rgba(34,211,238,0) 0%, rgba(34,211,238,0.28) 50%, rgba(34,211,238,0) 100%);
   animation: nebulaScan 1.35s linear infinite;
 }
-
 .nebula-loader-fill {
   width: 0%;
   animation: nebulaFill 1.2s ease-out forwards;
 }
-
 .nebula-fade-up {
-  animation: nebulaFadeUp 560ms cubic-bezier(0.2, 0.65, 0.3, 1);
+  animation: nebulaFadeUp 600ms cubic-bezier(0.2, 0.65, 0.3, 1) both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .nebula-boot-scanline,
-  .nebula-loader-fill,
-  .nebula-fade-up {
-    animation: none;
+/* ── Title glitch ──────────────────────────────────────────────────────────── */
+@keyframes glitchTitle {
+  0%, 74%, 100% {
+    filter: drop-shadow(4px 0 #ff00cc) drop-shadow(-4px 0 #00ffff)
+            drop-shadow(0 0 30px rgba(0,210,255,0.45));
+    transform: translate(0,0);
   }
+  76% {
+    filter: drop-shadow(9px 2px #ff0044) drop-shadow(-9px -2px #00ffff)
+            drop-shadow(0 0 50px rgba(0,220,255,0.8));
+    transform: translate(-5px, 1px);
+  }
+  78% {
+    filter: drop-shadow(-7px -1px #ff00cc) drop-shadow(7px 1px #00eeff);
+    transform: translate(5px, -2px);
+  }
+  80% {
+    filter: drop-shadow(4px 0 #ff00cc) drop-shadow(-4px 0 #00ffff)
+            drop-shadow(0 0 30px rgba(0,210,255,0.45));
+    transform: translate(0,0);
+  }
+}
+
+.glitch-title {
+  font-family: 'Press Start 2P', monospace;
+  background: linear-gradient(90deg, #00ffff 0%, #55ffee 18%, #cc88ff 60%, #ff00cc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(4px 0 #ff00cc) drop-shadow(-4px 0 #00ffff)
+          drop-shadow(0 0 30px rgba(0,210,255,0.45));
+  animation: glitchTitle 6s ease-in-out infinite;
+}
+
+/* ── Star twinkling groups ─────────────────────────────────────────────────── */
+@keyframes twinkleA { 0%,100%{opacity:1}    50%{opacity:0.08} }
+@keyframes twinkleB { 0%,100%{opacity:0.3}  50%{opacity:1}    }
+@keyframes twinkleC { 0%,100%{opacity:0.7}  33%{opacity:0.06} 66%{opacity:0.95} }
+@keyframes twinkleD { 0%,22%,100%{opacity:0.85} 60%{opacity:0.1}  }
+
+.twinkle-a { animation: twinkleA 3.2s ease-in-out infinite; }
+.twinkle-b { animation: twinkleB 4.1s ease-in-out infinite; animation-delay: 0.9s; }
+.twinkle-c { animation: twinkleC 3.6s ease-in-out infinite; animation-delay: 1.6s; }
+.twinkle-d { animation: twinkleD 4.8s ease-in-out infinite; animation-delay: 2.4s; }
+
+/* ── Galaxy spin ───────────────────────────────────────────────────────────── */
+@keyframes galaxySpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.galaxy-spin { animation: galaxySpin 130s linear infinite; transform-origin: center center; }
+
+/* ── Planet ring pulse ─────────────────────────────────────────────────────── */
+@keyframes ringPulse { 0%,100%{opacity:0.78} 50%{opacity:1} }
+.ring-pulse { animation: ringPulse 3.8s ease-in-out infinite; }
+
+/* ── Nebula breath ─────────────────────────────────────────────────────────── */
+@keyframes nebulaBreath { 0%,100%{opacity:0.52;transform:scale(1)} 50%{opacity:0.82;transform:scale(1.08)} }
+.nebula-blob {
+  border-radius: 50%;
+  filter: blur(65px);
+  animation: nebulaBreath 7s ease-in-out infinite;
+}
+
+/* ── Floating pixel particles ──────────────────────────────────────────────── */
+@keyframes pixelFloat {
+  0%   { transform: translateY(0);       opacity: 0;   }
+  6%   { opacity: 0.9; }
+  94%  { opacity: 0.6; }
+  100% { transform: translateY(-108vh);  opacity: 0;   }
+}
+.pixel-particle {
+  position: absolute;
+  image-rendering: pixelated;
+  animation: pixelFloat linear infinite;
+}
+
+/* ── CRT scanline overlay ──────────────────────────────────────────────────── */
+.crt-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 3px,
+    rgba(0,0,0,0.11) 3px, rgba(0,0,0,0.11) 4px
+  );
+}
+
+/* ── Sweeping scanline ─────────────────────────────────────────────────────── */
+@keyframes scanSweep {
+  0%   { top: -6px; opacity: 0.7; }
+  10%  { opacity: 0.45; }
+  90%  { opacity: 0.3; }
+  100% { top: 102vh; opacity: 0; }
+}
+.scanline-sweep {
+  position: absolute;
+  inset-x: 0;
+  height: 4px;
+  top: -6px;
+  background: linear-gradient(to bottom,
+    rgba(0,220,255,0) 0%, rgba(0,220,255,0.22) 50%, rgba(0,220,255,0) 100%);
+  animation: scanSweep 10s linear infinite;
+  pointer-events: none;
+}
+
+/* ── Asteroid drift ────────────────────────────────────────────────────────── */
+@keyframes asteroidDrift { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.asteroid-a { animation: asteroidDrift 58s linear infinite; }
+.asteroid-b { animation: asteroidDrift 42s linear infinite reverse; }
+.asteroid-c { animation: asteroidDrift 75s linear infinite; }
+.asteroid-d { animation: asteroidDrift 50s linear infinite reverse; }
+
+/* ── Pixel art mode buttons ────────────────────────────────────────────────── */
+.pixel-btn {
+  position: relative;
+  border-width: 3px;
+  border-style: solid;
+  image-rendering: pixelated;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 3px,
+    rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px
+  );
+}
+.pixel-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset -3px -3px 0 rgba(0,0,0,0.45), inset 2px 2px 0 rgba(255,255,255,0.1);
+  pointer-events: none;
+}
+
+@keyframes pixelPulseCyan {
+  0%,100% { box-shadow: 4px 4px 0 rgba(0,0,0,0.7), 0 0 20px rgba(0,220,255,0.55), 0 0 40px rgba(0,220,255,0.22); }
+  50%      { box-shadow: 4px 4px 0 rgba(0,0,0,0.7), 0 0 38px rgba(0,220,255,0.9),  0 0 70px rgba(0,220,255,0.38); }
+}
+@keyframes pixelPulseMagenta {
+  0%,100% { box-shadow: 4px 4px 0 rgba(0,0,0,0.7), 0 0 20px rgba(255,0,220,0.55), 0 0 40px rgba(255,0,220,0.22); }
+  50%      { box-shadow: 4px 4px 0 rgba(0,0,0,0.7), 0 0 38px rgba(255,0,220,0.9),  0 0 70px rgba(255,0,220,0.38); }
+}
+
+.pixel-btn-active-cyan     { animation: pixelPulseCyan     2.2s ease-in-out infinite; }
+.pixel-btn-active-magenta  { animation: pixelPulseMagenta  2.2s ease-in-out infinite; }
+
+/* ── Pixel art mechanic cards ──────────────────────────────────────────────── */
+.pixel-card {
+  position: relative;
+  border-width: 2px;
+  border-style: solid;
+  image-rendering: pixelated;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 3px,
+    rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px
+  );
+}
+.pixel-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset -2px -2px 0 rgba(0,0,0,0.4), inset 1px 1px 0 rgba(255,255,255,0.08);
+  pointer-events: none;
+}
+
+.pixel-card-cyan    { border-color: rgba(0,232,255,0.65); }
+.pixel-card-gold    { border-color: rgba(255,210,0,0.65); }
+.pixel-card-magenta { border-color: rgba(255,0,200,0.65); }
+
+.pixel-card-cyan:hover    { border-color: #00e8ff; background-color: rgba(0,50,80,0.4);   }
+.pixel-card-gold:hover    { border-color: #ffd700; background-color: rgba(80,60,0,0.3);   }
+.pixel-card-magenta:hover { border-color: #ff00cc; background-color: rgba(80,0,60,0.3);   }
+
+/* ── Spaceship float + thruster ────────────────────────────────────────────── */
+@keyframes shipFloat {
+  0%,100% { transform: translateY(0);   filter: drop-shadow(0 0 16px rgba(0,220,255,0.7)); }
+  50%      { transform: translateY(-10px); filter: drop-shadow(0 0 32px rgba(0,220,255,1)); }
+}
+.ship-decor { animation: shipFloat 2.8s ease-in-out infinite; }
+
+@keyframes thrusterFlame { 0%,100%{opacity:0.9} 33%{opacity:0.55} 66%{opacity:0.95} }
+@keyframes thrusterCore  { 0%,100%{opacity:0.7} 50%{opacity:0.25} }
+.thruster-flame { animation: thrusterFlame 0.24s steps(2) infinite; }
+.thruster-core  { animation: thrusterCore  0.18s steps(1) infinite; }
+
+/* ── Press-space blink ─────────────────────────────────────────────────────── */
+@keyframes blinkText { 0%,49%{opacity:1} 50%,99%{opacity:0} }
+.start-blink { animation: blinkText 1.1s step-end infinite; }
+
+/* ── Reduced motion ────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .nebula-boot-scanline, .nebula-loader-fill, .nebula-fade-up,
+  .nebula-blob, .glitch-title, .start-blink, .ship-decor,
+  .thruster-flame, .thruster-core, .pixel-particle,
+  .twinkle-a, .twinkle-b, .twinkle-c, .twinkle-d,
+  .galaxy-spin, .ring-pulse, .scanline-sweep,
+  .asteroid-a, .asteroid-b, .asteroid-c, .asteroid-d,
+  .pixel-btn-active-cyan, .pixel-btn-active-magenta { animation: none; }
 }

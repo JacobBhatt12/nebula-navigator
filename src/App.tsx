@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Settings, Volume2, VolumeX } from "lucide-react";
+import { AnoAI } from "@/components/ui/animated-shader-background";
 import {
   GameState,
   MovementMode,
@@ -236,8 +237,8 @@ function App() {
         <div className="fixed inset-0 z-20 overflow-hidden font-['Press_Start_2P']"
              style={{ imageRendering: 'pixelated' }}>
 
-          {/* Space base */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_28%_22%,#28094c_0%,#0e0228_42%,#050115_100%)]"/>
+          {/* Three.js aurora shader — fills the whole background */}
+          <AnoAI />
 
           {/* Twinkling starfield */}
           <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
@@ -249,13 +250,6 @@ function App() {
               </g>
             ))}
           </svg>
-
-          {/* Nebula clouds */}
-          <div className="nebula-blob absolute -left-24  top-2    h-80 w-80 bg-purple-700/55"/>
-          <div className="nebula-blob absolute right-2   top-16   h-64 w-64 bg-cyan-800/28"  style={{animationDelay:'2.3s'}}/>
-          <div className="nebula-blob absolute bottom-16 left-[16%]  h-72 w-72 bg-violet-700/40" style={{animationDelay:'1.2s'}}/>
-          <div className="nebula-blob absolute bottom-24 right-[10%] h-56 w-56 bg-amber-900/28" style={{animationDelay:'3.6s'}}/>
-          <div className="nebula-blob absolute left-[36%] -top-12  h-48 w-48 bg-indigo-700/28" style={{animationDelay:'0.7s'}}/>
 
           {/* CRT scanlines + sweep */}
           <div className="crt-scanlines pointer-events-none absolute inset-0 z-30"/>

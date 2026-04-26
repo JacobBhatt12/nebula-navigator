@@ -93,14 +93,14 @@ let bgTime       = 0;
 let rafId        = null;
 let lastTime     = 0;
 
+
 // Pre-computed pixel background star field
 const bgStars = (function () {
   const colors = ['#ffffff', '#ffe8c0', '#a0e8ff', '#ffa0d8', '#a0ffb8', '#c0a0ff', '#ffff80'];
-  // mix of single-pixel dots and cross sparkles
   return Array.from({ length: 150 }, () => ({
     x:       Math.random(),
     y:       Math.random(),
-    size:    Math.random() < 0.15 ? 3 : 1, // 15% are cross sparkles (size=3), rest are dots
+    size:    Math.random() < 0.15 ? 3 : 1,
     color:   colors[Math.floor(Math.random() * colors.length)],
     phase:   Math.random() * Math.PI * 2,
     speed:   0.5 + Math.random() * 2.0,
@@ -400,7 +400,6 @@ function update(dt) {
 function drawBackground() {
   const W = canvas.width, H = canvas.height;
 
-  // cosmic base closer to welcome page design
   const base = ctx.createLinearGradient(0, 0, W, H);
   base.addColorStop(0,   '#070b1c');
   base.addColorStop(0.45,'#0b1234');
@@ -408,7 +407,6 @@ function drawBackground() {
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, W, H);
 
-  // nebula cloud blobs
   const blobs = [
     { nx: 0.17, ny: 0.24, nr: 0.40, rgb:  '0, 185, 255', ph: 0.0  },
     { nx: 0.72, ny: 0.16, nr: 0.32, rgb: '130, 40, 255', ph: 1.5  },
@@ -430,7 +428,6 @@ function drawBackground() {
     ctx.fill();
   });
 
-  // pixel twinkling stars — dots and cross sparkles
   ctx.imageSmoothingEnabled = false;
   bgStars.forEach(({ x, y, size, color, phase, speed }) => {
     const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(bgTime * speed + phase));
@@ -439,12 +436,11 @@ function drawBackground() {
     ctx.globalAlpha = alpha;
     ctx.fillStyle   = color;
     if (size === 1) {
-      ctx.fillRect(sx, sy, 2, 2); // pixel dot
+      ctx.fillRect(sx, sy, 2, 2);
     } else {
-      // cross sparkle
-      ctx.fillRect(sx - 4, sy, 9, 2); // horizontal arm
-      ctx.fillRect(sx, sy - 4, 2, 9); // vertical arm
-      ctx.fillRect(sx, sy, 2, 2);     // bright center
+      ctx.fillRect(sx - 4, sy, 9, 2);
+      ctx.fillRect(sx, sy - 4, 2, 9);
+      ctx.fillRect(sx, sy, 2, 2);
     }
   });
   ctx.globalAlpha = 1;

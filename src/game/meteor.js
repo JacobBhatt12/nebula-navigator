@@ -6,24 +6,57 @@ const METEOR_PALETTES = [
 
 export class Meteor {
   constructor(canvasWidth) {
-    this.x        = 40 + Math.random() * (canvasWidth - 80);
-    this.y        = -50;
-    this.radius   = 18 + Math.random() * 22;
-    this.speed    = 120 + Math.random() * 100;
-    this.rotation = Math.random() * Math.PI * 2;
-    this.rotSpeed = (Math.random() - 0.5) * 2.5;
-    this.alive    = true;
-    this.palette  = METEOR_PALETTES[Math.floor(Math.random() * METEOR_PALETTES.length)];
-    // pixel layout variant (0-2) gives each meteor a unique silhouette
-    this.variant  = Math.floor(Math.random() * 3);
+    this.x          = 40 + Math.random() * (canvasWidth - 80);
+    this.y          = -50;
+    this.radius     = 18 + Math.random() * 22;
+    this.speed      = 120 + Math.random() * 100;
+    this.rotation   = Math.random() * Math.PI * 2;
+    this.rotSpeed   = (Math.random() - 0.5) * 2.5;
+    this.alive      = true;
+    this.palette    = METEOR_PALETTES[Math.floor(Math.random() * METEOR_PALETTES.length)];
+    this.variant    = Math.floor(Math.random() * 3);
+    this.trailPhase = Math.random() * Math.PI * 2;
   }
 
   update(dt) {
-    this.y        += this.speed * dt;
-    this.rotation += this.rotSpeed * dt;
+    this.y          += this.speed * dt;
+    this.rotation   += this.rotSpeed * dt;
+    this.trailPhase += dt * 9;
+  }
+
+  _drawTail(ctx) {
+    const { x, y, radius, trailPhase } = this;
+    // hot-to-cool ramp: white-yellow → orange → red → dark
+    const COLORS = ['#fffff0','#ffe860','#ffb020','#ff6010','#ff2808','#cc1808','#781010','#380808'];
+    const steps  = COLORS.length;
+    const maxOff = radius * 3.2;
+    const baseW  = radius * 0.95;
+    const segH   = Math.ceil(maxOff / steps) + 1;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    for (let i = 0; i < steps; i++) {
+      const t     = (i + 1) / steps;
+      const offY  = t * maxOff;
+      const w     = Math.max(2, Math.round(baseW * (1 - t * 0.82)));
+      const shimX = Math.sin(trailPhase + i * 1.6) * 2;
+      ctx.globalAlpha = (1 - t) * 0.72;
+      ctx.fillStyle   = COLORS[i];
+      ctx.fillRect(
+        Math.round(x - w / 2 + shimX),
+        Math.round(y - offY - segH),
+        w, segH
+      );
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   draw(ctx) {
+    this._drawTail(ctx);
+
     const { x, y, radius, rotation, palette, variant } = this;
     const P = Math.max(3, Math.round(radius / 5)); // pixel unit scales with size
 

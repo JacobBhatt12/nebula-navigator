@@ -1,4 +1,4 @@
-import { getLevel, getXP, getSkin, getXPProgress, isMaxLevel } from '../game/progression.js';
+import { getLevel, getXP, getSkin, getXPProgress, isMaxLevel, SKINS } from '../game/progression.js';
 
 const PX_FONT  = '"Press Start 2P", monospace';
 
@@ -40,15 +40,37 @@ export class HUD {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
 
-    // ── Title (top-left) ─────────────────────────────────────────────────────────
-    ctx.font      = `9px ${PX_FONT}`;
-    ctx.fillStyle = '#00d8ff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.shadowColor  = 'rgba(0,200,255,0.55)';
-    ctx.shadowBlur   = 8;
-    ctx.fillText('NEBULA NAVIGATOR', 14, 14);
-    ctx.shadowBlur   = 0;
+    // ── Skin level nodes (top-left) ───────────────────────────────────────────
+    const skinIdx  = Math.min(lvl - 1, SKINS.length - 1);
+    const nodeSize = 18, nodeGap = 6;
+    const nodesX   = 14, nodesY  = 14;
+
+    ctx.font         = `7px ${PX_FONT}`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+
+    SKINS.forEach((s, i) => {
+      const nx         = nodesX + i * (nodeSize + nodeGap);
+      const ny         = nodesY;
+      const isCurrent  = i === skinIdx;
+      const isUnlocked = i < skinIdx;
+
+      if (isCurrent) { ctx.shadowColor = s.stroke; ctx.shadowBlur = 12; }
+
+      ctx.fillStyle = isCurrent ? s.hull : isUnlocked ? `${s.hull}88` : 'rgba(20,14,44,0.9)';
+      ctx.fillRect(nx, ny, nodeSize, nodeSize);
+
+      ctx.fillStyle = isCurrent ? s.stroke : isUnlocked ? `${s.stroke}66` : 'rgba(70,50,110,0.5)';
+      ctx.fillRect(nx, ny, nodeSize, 2);
+      ctx.fillRect(nx, ny + nodeSize - 2, nodeSize, 2);
+      ctx.fillRect(nx, ny, 2, nodeSize);
+      ctx.fillRect(nx + nodeSize - 2, ny, 2, nodeSize);
+
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = isCurrent ? '#ffffff' : isUnlocked ? 'rgba(255,255,255,0.55)' : 'rgba(100,80,140,0.45)';
+      ctx.fillText(String(i + 1), nx + nodeSize / 2, ny + nodeSize / 2 + 1);
+    });
 
     // ── Timer (top-center) — pixel box ───────────────────────────────────────────
     const tbw = 110, tbh = 28, tbx = W / 2 - tbw / 2, tby = 8;

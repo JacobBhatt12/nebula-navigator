@@ -11,6 +11,7 @@ import {
   startGame,
   stopGame,
 } from "@/game/gameLoop.js";
+import { startShaderBackground } from "@/game/starshipShader.js";
 
 function App() {
   const [gameState, setGameState] = useState<string>(() => getGameState());
@@ -62,11 +63,20 @@ function App() {
   }, [movementMode]);
 
   const showWelcome = useMemo(() => gameState === GameState.IDLE, [gameState]);
+
+  useEffect(() => {
+    if (!showWelcome) return;
+    const bgCanvas = document.getElementById("bgCanvas") as HTMLCanvasElement | null;
+    if (!bgCanvas) return;
+    return startShaderBackground(bgCanvas);
+  }, [showWelcome]);
+
   const isStanding = movementMode === MovementMode.STANDING;
   const isChair = movementMode === MovementMode.WHEELCHAIR;
 
   return (
     <>
+      {showWelcome && <canvas id="bgCanvas" />}
       <canvas
         id="gameCanvas"
         className={showWelcome ? "opacity-0 transition-opacity duration-300" : ""}
@@ -93,7 +103,7 @@ function App() {
 
       {showWelcome ? (
         <div className="fixed inset-0 z-20 overflow-hidden">
-          <PixelRocketHero title="S-TARDUS-T" subtitle="" className="!bg-[#080b1e]">
+          <PixelRocketHero title="S-TARDUS-T" subtitle="" className="!bg-transparent">
             <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 pb-20">
               <div className="flex w-full max-w-2xl gap-5 px-1 mx-auto">
                 <button

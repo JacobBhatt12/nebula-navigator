@@ -19,6 +19,7 @@ let lastLandmarks  = null;
 
 let _skeletonCanvas = null;
 let _skeletonCtx    = null;
+const SHOW_DEBUG_SKELETON = false;
 
 // Bone pairs to draw (MediaPipe Pose landmark indices)
 const _BONES = [
@@ -76,6 +77,7 @@ async function startWebcam() {
 }
 
 function _initSkeletonCanvas() {
+  if (!SHOW_DEBUG_SKELETON) return;
   _skeletonCanvas = document.createElement('canvas');
   _skeletonCanvas.width  = 200;
   _skeletonCanvas.height = 200;
@@ -94,6 +96,7 @@ function _initSkeletonCanvas() {
 }
 
 function _drawSkeletonFrame() {
+  if (!SHOW_DEBUG_SKELETON) return;
   if (!_skeletonCtx) return;
   const S = 200;
   _skeletonCtx.clearRect(0, 0, S, S);
@@ -177,7 +180,7 @@ function processFrame() {
 export async function initPoseEngine() {
   await loadMediaPipe();
   await startWebcam();
-  _initSkeletonCanvas();
+  if (SHOW_DEBUG_SKELETON) _initSkeletonCanvas();
   processFrame();
   console.log('[PoseEngine] initialized — tracking started');
 }

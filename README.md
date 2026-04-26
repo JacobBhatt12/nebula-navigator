@@ -1,4 +1,4 @@
-# S-TARDUS-T — Nebula Navigator
+# S-TARDUS-T
 
 > Browser-based AI physical therapy game for children with motor disabilities.
 

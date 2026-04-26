@@ -5,9 +5,19 @@ import { StardustManager } from './stardust.js';
 import { addXP, getLevel, getSkin, reset as resetProgression } from './progression.js';
 import { HUD }            from '../ui/hud.js';
 import { poseData }       from '../tracking/poseInterface.js';
-import { initPoseEngine } from '../tracking/poseEngine.js';
+import { initPoseEngine, getPoseStream } from '../tracking/poseEngine.js';
 import { runCalibration, goldenBounds } from '../tracking/calibration.js';
 import { recordMiss, resetMissCount, getMissCount, recordCollection } from '../tracking/adaptiveBubble.js';
+import {
+  startSession as startTelemetrySession,
+  stopSession as stopTelemetrySession,
+  resetSession as resetTelemetrySession,
+  recordFrameSample,
+  recordHit as recordTelemetryHit,
+  recordMiss as recordTelemetryMiss,
+} from '../ai/telemetry.js';
+import { startSessionRecording, stopSessionRecording, getLastRecordingError } from '../ai/sessionRecorder.js';
+import { showReportModal } from '../ui/reportModal.js';
 
 // ─── State Machine ────────────────────────────────────────────────────────────
 export const GameState = {
@@ -106,6 +116,8 @@ let leftGrabbed  = null; // Stardust being held by left arm this frame
 let rightGrabbed = null; // Stardust being held by right arm this frame
 let lTargetX = 0, lTargetY = 0; // clamped arm targets shared between update and draw
 let rTargetX = 0, rTargetY = 0;
+let reportPending = false;
+let recordingRetryTimer = null;
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -167,6 +179,10 @@ function startSession() {
   resetMissCount();
   resetProgression();
   lagScore = 0;
+  reportPending = false;
+  resetTelemetrySession();
+  startTelemetrySession();
+  _startSessionRecordingWithRetry();
   setState(GameState.PLAYING);
 }
 
@@ -176,7 +192,50 @@ function resetSession() {
 }
 
 function endSession() {
+  if (state === GameState.ENDED || reportPending) return;
+  reportPending = true;
+  stopTelemetrySession();
   setState(GameState.ENDED);
+  void _openReportForSession();
+}
+
+async function _openReportForSession() {
+  _clearRecordingRetry();
+  const recording = await stopSessionRecording();
+  const recordingError = getLastRecordingError();
+  try {
+    await showReportModal({ recording, recordingError });
+  } catch (error) {
+    console.warn('[ReportModal] failed to render:', error);
+  }
+}
+
+function _clearRecordingRetry() {
+  if (recordingRetryTimer) {
+    clearTimeout(recordingRetryTimer);
+    recordingRetryTimer = null;
+  }
+}
+
+function _resolveRecordingSource() {
+  if (webcamEl?.srcObject instanceof MediaStream) return webcamEl;
+  const poseStream = getPoseStream();
+  if (poseStream) return poseStream;
+  return null;
+}
+
+function _startSessionRecordingWithRetry(attempt = 0) {
+  const ok = startSessionRecording(_resolveRecordingSource());
+  if (ok) {
+    _clearRecordingRetry();
+    return;
+  }
+  if (attempt >= 12 || state !== GameState.PLAYING) return;
+
+  _clearRecordingRetry();
+  recordingRetryTimer = setTimeout(() => {
+    _startSessionRecordingWithRetry(attempt + 1);
+  }, 350);
 }
 
 // ─── Resize ───────────────────────────────────────────────────────────────────
@@ -222,6 +281,15 @@ function update(dt) {
   const lwx = smoothLwx, lwy = smoothLwy;
   const rwx = smoothRwx, rwy = smoothRwy;
 
+  recordFrameSample({
+    hipX: poseData.hipX,
+    torsoX: poseData.torsoX,
+    neckX: poseData.neckX,
+    leftWrist: poseData.leftWrist,
+    rightWrist: poseData.rightWrist,
+    bubbleRadius: poseData.bubbleRadius,
+  });
+
   // J3.3 — meteors scale with level
   const hits = meteors.update(dt, canvas.width, canvas.height, ship);
   if (hits > 0) {
@@ -242,13 +310,38 @@ function update(dt) {
   const rightTip = rightArm.getTip(ship.x + 28, ship.y - 8, rTargetX, rTargetY);
 
   // J3.4 — stardust density scales with level
-  const { collected, missed } = stardust.update(
+  const { collected, missed, collectedEvents = [], missedEvents = [] } = stardust.update(
     dt, canvas.width, canvas.height,
     leftTip.x, leftTip.y, rightTip.x, rightTip.y, poseData.bubbleRadius,
     ship.x, ship.y
   );
   if (missed > 0) {
-    for (let i = 0; i < missed; i++) recordMiss();
+    if (missedEvents.length) {
+      for (const event of missedEvents) {
+        recordMiss();
+        recordTelemetryMiss({
+          bubbleRadius: poseData.bubbleRadius,
+          latencyMs: event.latencyMs,
+          hand: event.hand,
+          wristPos: {
+            left: { x: poseData.leftWrist.x, y: poseData.leftWrist.y },
+            right: { x: poseData.rightWrist.x, y: poseData.rightWrist.y },
+            target: { x: event.x, y: event.y },
+          },
+        });
+      }
+    } else {
+      for (let i = 0; i < missed; i++) {
+        recordMiss();
+        recordTelemetryMiss({
+          bubbleRadius: poseData.bubbleRadius,
+          wristPos: {
+            left: { x: poseData.leftWrist.x, y: poseData.leftWrist.y },
+            right: { x: poseData.rightWrist.x, y: poseData.rightWrist.y },
+          },
+        });
+      }
+    }
   }
 
   // track which star each arm is holding this frame (used in draw)
@@ -257,6 +350,30 @@ function update(dt) {
 
   if (collected > 0) {
     recordCollection(collected);
+    if (collectedEvents.length) {
+      for (const event of collectedEvents) {
+        recordTelemetryHit({
+          bubbleRadius: poseData.bubbleRadius,
+          latencyMs: event.latencyMs,
+          hand: event.hand,
+          wristPos: {
+            left: { x: poseData.leftWrist.x, y: poseData.leftWrist.y },
+            right: { x: poseData.rightWrist.x, y: poseData.rightWrist.y },
+            target: { x: event.x, y: event.y },
+          },
+        });
+      }
+    } else {
+      for (let i = 0; i < collected; i++) {
+        recordTelemetryHit({
+          bubbleRadius: poseData.bubbleRadius,
+          wristPos: {
+            left: { x: poseData.leftWrist.x, y: poseData.leftWrist.y },
+            right: { x: poseData.rightWrist.x, y: poseData.rightWrist.y },
+          },
+        });
+      }
+    }
     score += collected;
 
     // J3.1 — award XP, check for level-up
@@ -753,6 +870,9 @@ export function startGame() {
 export function stopGame() {
   cancelAnimationFrame(rafId);
   rafId = null;
+  _clearRecordingRetry();
+  stopTelemetrySession();
+  void stopSessionRecording();
   window.removeEventListener('resize', resize);
 }
 

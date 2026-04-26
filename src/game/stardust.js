@@ -75,6 +75,10 @@ export class Stardust {
     this._flyStartX = 0;
     this._flyStartY = 0;
     this._xpPending = false;
+    this._collectionLatencyMs = null;
+    this._collectedBy = 'unknown';
+    this._missLatencyMs = null;
+    this._missedBy = 'unknown';
   }
 
   update(dt, lwx, lwy, rwx, rwy, bubbleRadius, shipX, shipY) {
@@ -119,12 +123,19 @@ export class Stardust {
       if (this.holdTimer >= HOLD_DURATION) {
         this.flying     = true;
         this._xpPending = true;
+        this._collectionLatencyMs = Math.round(this.lifeTimer * 1000);
+        this._collectedBy = this.lockedBy || 'unknown';
         this._flyStartX = this.x;
         this._flyStartY = this.y;
       }
     } else {
       this.holdTimer = Math.max(0, this.holdTimer - dt * 2);
+      if (!leftIn && !rightIn) this._missedBy = 'none';
     }
+
+    if (leftIn && !rightIn) this._missedBy = 'left';
+    if (rightIn && !leftIn) this._missedBy = 'right';
+    if (leftIn && rightIn) this._missedBy = 'both';
   }
 
   get progress() { return Math.min(1, this.holdTimer / HOLD_DURATION); }
@@ -244,14 +255,33 @@ export class StardustManager {
       t.update(dt, lwx, lwy, rwx, rwy, bubbleRadius, shipX, shipY);
     }
 
-    const collected = this.targets.filter(t => t._xpPending).length;
-    this.targets.forEach(t => { t._xpPending = false; });
+    const collectedTargets = this.targets.filter(t => t._xpPending);
+    const collectedEvents = collectedTargets.map((t) => ({
+      latencyMs: t._collectionLatencyMs,
+      hand: t._collectedBy,
+      x: t.x,
+      y: t.y,
+    }));
+    const collected = collectedTargets.length;
 
-    const missed = this.targets.filter(t => t.expired).length;
+    const missedTargets = this.targets.filter(t => t.expired);
+    const missedEvents = missedTargets.map((t) => ({
+      latencyMs: Math.round((t._missLatencyMs ?? t.lifeTimer * 1000)),
+      hand: t._missedBy,
+      x: t.x,
+      y: t.y,
+    }));
+    const missed = missedTargets.length;
+
+    this.targets.forEach(t => {
+      t._xpPending = false;
+      if (t.expired && t._missLatencyMs === null) t._missLatencyMs = Math.round(t.lifeTimer * 1000);
+    });
+
     this.totalMisses += missed;
     this.targets = this.targets.filter(t => !t.collected && !t.expired);
 
-    return { collected, missed };
+    return { collected, missed, collectedEvents, missedEvents };
   }
 
   draw(ctx) {

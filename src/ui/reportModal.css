@@ -12,9 +12,11 @@
   background: #0d0d2b;
   border: 1px solid #2a2a5a;
   border-radius: 12px;
-  padding: 32px;
-  max-width: 560px;
+  padding: 28px;
+  max-width: 760px;
   width: 90%;
+  max-height: 88vh;
+  overflow: auto;
   color: #e0e0ff;
   font-family: 'Segoe UI', sans-serif;
   box-shadow: 0 0 40px rgba(100, 120, 255, 0.25);
@@ -41,11 +43,72 @@
 .report-stats span { color: #aab; }
 .report-stats b    { color: #7eff9e; }
 
+.report-header-meta {
+  margin-bottom: 12px;
+}
+
+.report-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1f3d78;
+  color: #d3e6ff;
+  border: 1px solid #3562aa;
+  font-size: 0.78em;
+  letter-spacing: 0.02em;
+}
+
+.report-badge-fallback {
+  background: #3d2c1a;
+  border-color: #8f5d24;
+  color: #ffd8a8;
+}
+
+.report-video-wrap {
+  margin-bottom: 18px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #2b3d6f;
+  background: #111b38;
+}
+
+.report-video-wrap h3 {
+  margin: 0 0 10px;
+  font-size: 0.95em;
+  color: #9ec5ff;
+}
+
+.report-video {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #334a85;
+  background: #000;
+}
+
+.report-video-meta {
+  margin: 8px 0 0;
+  color: #a9bde8;
+  font-size: 0.82em;
+}
+
+.report-video-missing {
+  margin: 0;
+  color: #b8c2df;
+  font-size: 0.9em;
+}
+
 .report-text {
   line-height: 1.7;
   font-size: 0.95em;
   color: #ccd;
   margin-bottom: 24px;
+}
+
+.report-warning {
+  margin: 0 0 12px;
+  color: #ffd2a6;
+  font-size: 0.86em;
 }
 
 #report-loading {
@@ -68,3 +131,8 @@
   transition: background 0.15s;
 }
 #report-close:hover { background: #3a3a8a; }
+
+.report-actions {
+  display: flex;
+  justify-content: flex-end;
+}

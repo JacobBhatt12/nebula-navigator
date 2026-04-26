@@ -182,6 +182,10 @@ export async function initPoseEngine() {
   console.log('[PoseEngine] initialized — tracking started');
 }
 
+export function getPoseStream() {
+  return videoElement?.srcObject instanceof MediaStream ? videoElement.srcObject : null;
+}
+
 export function stopPoseEngine() {
   if (animFrameId) cancelAnimationFrame(animFrameId);
   if (videoElement?.srcObject) {

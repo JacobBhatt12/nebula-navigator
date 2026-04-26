@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -8,29 +12,41 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0d0520;
+  background: #020412;
+  font-family: 'Press Start 2P', monospace;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
 }
 
 #gameCanvas {
   display: block;
   width: 100%;
   height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 #webcam {
   position: fixed;
   bottom: 20px;
   left: 20px;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 3px solid rgba(0, 210, 210, 0.85);
+  width: 148px;
+  height: 148px;
+  /* square pixel-style frame instead of circle */
+  border: 4px solid rgba(0, 200, 255, 0.8);
+  outline: 2px solid rgba(0, 80, 160, 0.7);
   object-fit: cover;
   transform: scaleX(-1);
-  opacity: 0.92;
+  opacity: 0.90;
   z-index: 10;
   transition: opacity 0.3s;
-  box-shadow: 0 0 16px rgba(0, 210, 210, 0.4);
+  box-shadow: 0 0 0 2px #020412, 0 0 18px rgba(0, 200, 255, 0.35);
+  image-rendering: pixelated;
 }
 
 body.calibrating #webcam {

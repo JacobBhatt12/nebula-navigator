@@ -1,5 +1,7 @@
 import { getLevel, getXP, getSkin, getXPProgress, isMaxLevel } from '../game/progression.js';
 
+const PX_FONT  = '"Press Start 2P", monospace';
+
 export class HUD {
   constructor() {
     this.levelUpFlash = 0;
@@ -25,8 +27,8 @@ export class HUD {
     bubbleRadius = 120,
     lagScore = 0,
   }) {
-    const W   = canvas.width;
-    const H   = canvas.height;
+    const W    = canvas.width;
+    const H    = canvas.height;
     const skin = getSkin();
     const lvl  = getLevel();
     const xp   = getXP();
@@ -36,133 +38,160 @@ export class HUD {
     const ss = String(Math.floor(timeLeft % 60)).padStart(2, '0');
 
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
 
-    // ── "Nebula Navigator" title (top-left) ──────────────────────────────────
-    ctx.font      = 'bold 22px monospace';
-    ctx.fillStyle = '#00d8d8';
+    // ── Title (top-left) ─────────────────────────────────────────────────────────
+    ctx.font      = `9px ${PX_FONT}`;
+    ctx.fillStyle = '#00d8ff';
     ctx.textAlign = 'left';
-    ctx.shadowColor = 'rgba(0, 220, 220, 0.6)';
-    ctx.shadowBlur  = 10;
-    ctx.fillText('Nebula Navigator', 18, 36);
-    ctx.shadowBlur = 0;
+    ctx.textBaseline = 'top';
+    ctx.shadowColor  = 'rgba(0,200,255,0.55)';
+    ctx.shadowBlur   = 8;
+    ctx.fillText('NEBULA NAVIGATOR', 14, 14);
+    ctx.shadowBlur   = 0;
 
-    // ── Timer (top-center) ────────────────────────────────────────────────────
-    ctx.font      = 'bold 20px monospace';
-    ctx.fillStyle = timeLeft < 20 ? '#ff4466' : '#c8b8ff';
-    ctx.textAlign = 'center';
-    ctx.fillText(`${mm}:${ss}`, W / 2, 36);
+    // ── Timer (top-center) — pixel box ───────────────────────────────────────────
+    const tbw = 110, tbh = 28, tbx = W / 2 - tbw / 2, tby = 8;
+    ctx.fillStyle = '#050318';
+    ctx.fillRect(tbx, tby, tbw, tbh);
+    const timerColor = timeLeft < 20 ? '#ff2244' : '#c8b8ff';
+    ctx.fillStyle = timerColor;
+    ctx.fillRect(tbx, tby, tbw, 3);
+    ctx.fillRect(tbx, tby + tbh - 3, tbw, 3);
+    ctx.fillRect(tbx, tby, 3, tbh);
+    ctx.fillRect(tbx + tbw - 3, tby, 3, tbh);
+    ctx.font         = `10px ${PX_FONT}`;
+    ctx.fillStyle    = timerColor;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${mm}:${ss}`, W / 2, tby + tbh / 2 + 1);
 
-    // ── Stats panel (top-right) ───────────────────────────────────────────────
-    const panelW  = 196;
-    const panelH  = 174;
-    const panelX  = W - panelW - 14;
-    const panelY  = 10;
-    const pad     = 12;
+    // ── Stats panel (top-right) ───────────────────────────────────────────────────
+    const panelW = 210, panelH = 188;
+    const panelX = W - panelW - 12, panelY = 8;
 
-    // panel background
-    ctx.beginPath();
-    ctx.roundRect(panelX, panelY, panelW, panelH, 12);
-    ctx.fillStyle   = 'rgba(10, 4, 28, 0.78)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(100, 60, 200, 0.55)';
-    ctx.lineWidth   = 1.5;
-    ctx.stroke();
+    // panel bg + pixel border
+    ctx.fillStyle = 'rgba(4, 2, 20, 0.88)';
+    ctx.fillRect(panelX, panelY, panelW, panelH);
+    ctx.fillStyle = 'rgba(70, 40, 180, 0.8)';
+    ctx.fillRect(panelX, panelY, panelW, 3);
+    ctx.fillRect(panelX, panelY + panelH - 3, panelW, 3);
+    ctx.fillRect(panelX, panelY, 3, panelH);
+    ctx.fillRect(panelX + panelW - 3, panelY, 3, panelH);
+    // corner accents
+    ctx.fillStyle = '#6040c0';
+    ctx.fillRect(panelX, panelY, 6, 6);
+    ctx.fillRect(panelX + panelW - 6, panelY, 6, 6);
+    ctx.fillRect(panelX, panelY + panelH - 6, 6, 6);
+    ctx.fillRect(panelX + panelW - 6, panelY + panelH - 6, 6, 6);
 
-    // panel rows
-    const lagLabel =
-      lagScore < 30 ? 'Low' :
-      lagScore < 65 ? 'Med' :
-      'High';
-
+    const lagLabel = lagScore < 30 ? 'LOW' : lagScore < 65 ? 'MED' : 'HIGH';
     const rows = [
-      { label: 'XP:',            value: String(xp) },
-      { label: 'LEVEL:',         value: `${lvl}${isMaxLevel() ? ' MAX' : ''}` },
-      { label: 'STARDUST MISS:', value: String(missCount) },
-      { label: 'METEOR HITS:',   value: String(hitCount) },
-      { label: 'ROM Bubble:',    value: bubbleRadius < 100 ? 'Low' : 'Opt' },
-      { label: 'Lag:',           value: lagLabel },
+      { label: 'XP',       value: String(xp),                         vc: '#ffe840' },
+      { label: 'LEVEL',    value: `${lvl}${isMaxLevel() ? ' MAX' : ''}`, vc: '#40e8ff' },
+      { label: 'MISS',     value: String(missCount),                   vc: '#ff8060' },
+      { label: 'HITS',     value: `${hitCount}/${maxHits}`,            vc: '#ff4466' },
+      { label: 'BUBBLE',   value: bubbleRadius < 100 ? 'LOW' : 'OPT', vc: '#80ff80' },
+      { label: 'LAG',      value: lagLabel,                            vc: '#c0a0ff' },
     ];
 
-    ctx.font         = '12px monospace';
-    ctx.textBaseline = 'middle';
+    const pad  = 10;
     const rowH = (panelH - pad * 2) / rows.length;
+    ctx.font         = `7px ${PX_FONT}`;
+    ctx.textBaseline = 'middle';
 
-    rows.forEach(({ label, value }, i) => {
+    rows.forEach(({ label, value, vc }, i) => {
       const ry = panelY + pad + rowH * i + rowH * 0.5;
-
-      // label
-      ctx.fillStyle = 'rgba(160, 140, 220, 0.85)';
+      ctx.fillStyle = 'rgba(140, 120, 220, 0.8)';
       ctx.textAlign = 'left';
       ctx.fillText(label, panelX + pad, ry);
-
-      // value
-      ctx.fillStyle = '#e8e0ff';
+      ctx.fillStyle = vc;
       ctx.textAlign = 'right';
       ctx.fillText(value, panelX + panelW - pad, ry);
     });
 
-    // divider line after LEVEL row
-    ctx.beginPath();
-    ctx.moveTo(panelX + pad, panelY + pad + rowH * 2);
-    ctx.lineTo(panelX + panelW - pad, panelY + pad + rowH * 2);
-    ctx.strokeStyle = 'rgba(100, 80, 200, 0.3)';
-    ctx.lineWidth   = 1;
-    ctx.stroke();
+    // divider after LEVEL
+    ctx.fillStyle = 'rgba(70,50,180,0.4)';
+    ctx.fillRect(panelX + pad, panelY + pad + rowH * 2, panelW - pad * 2, 2);
 
     ctx.textBaseline = 'alphabetic';
 
-    // ── XP bar (bottom-center) ─────────────────────────────────────────────────
-    const barW = Math.min(W * 0.5, 420);
-    const barH = 10;
-    const barX = (W - barW) / 2;
-    const barY = H - 34;
-    const xpPct = getXPProgress();
+    // ── XP bar (bottom) — segmented pixel style ────────────────────────────────
+    const barW   = Math.min(W * 0.50, 420);
+    const barH   = 12;
+    const barX   = (W - barW) / 2;
+    const barY   = H - 36;
+    const xpPct  = getXPProgress();
+    const segW   = Math.round(barW / 20); // 20 segments
+    const filled = Math.round(xpPct * 20);
 
-    ctx.beginPath();
-    ctx.roundRect(barX, barY, barW, barH, 5);
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // bar background
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(barX, barY, barW, 2);
+    ctx.fillRect(barX, barY, 2, barH);
+    ctx.fillRect(barX + barW - 2, barY, 2, barH);
+    ctx.fillRect(barX, barY + barH - 2, barW, 2);
 
-    if (xpPct > 0) {
-      const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-      grad.addColorStop(0, skin.stroke);
-      grad.addColorStop(1, '#ffffff88');
-      ctx.beginPath();
-      ctx.roundRect(barX, barY, barW * xpPct, barH, 5);
-      ctx.fillStyle = grad;
-      ctx.fill();
+    // filled segments
+    for (let i = 0; i < filled; i++) {
+      const sx = barX + i * segW + 1;
+      ctx.fillStyle = i < 15 ? skin.cockpit : '#ffffff';
+      ctx.fillRect(sx, barY + 2, segW - 1, barH - 4);
     }
 
-    ctx.font      = 'bold 13px monospace';
-    ctx.fillStyle = skin.stroke;
-    ctx.textAlign = 'right';
-    ctx.fillText(`LV${lvl}`, barX - 8, barY + 9);
+    // level label left
+    ctx.font         = `7px ${PX_FONT}`;
+    ctx.fillStyle    = skin.stroke;
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`LV${lvl}`, barX - 8, barY + barH / 2);
 
-    ctx.font      = '12px monospace';
-    ctx.fillStyle = 'rgba(200,180,255,0.55)';
+    // skin name right
+    ctx.fillStyle = 'rgba(200,180,255,0.6)';
     ctx.textAlign = 'left';
-    ctx.fillText(isMaxLevel() ? `${skin.name}  MAX` : skin.name, barX + barW + 8, barY + 9);
+    ctx.fillText(isMaxLevel() ? `${skin.name} MAX` : skin.name, barX + barW + 8, barY + barH / 2);
 
-    // ── Level-up flash overlay ─────────────────────────────────────────────────
+    // ── Health bar (hearts / pixel dashes) ────────────────────────────────────
+    const hbx = panelX, hby = panelY + panelH + 8;
+    ctx.font         = `7px ${PX_FONT}`;
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle    = '#ff4466';
+    for (let i = 0; i < maxHits; i++) {
+      const alive = i >= hitCount;
+      ctx.fillStyle = alive ? '#ff2244' : 'rgba(100,30,50,0.5)';
+      ctx.fillRect(hbx + i * 20, hby, 14, 14);
+      if (alive) {
+        ctx.fillStyle = '#ff8898';
+        ctx.fillRect(hbx + i * 20 + 2, hby + 2, 4, 4);
+      }
+    }
+
+    // ── Level-up flash overlay ────────────────────────────────────────────────
     if (this.levelUpFlash > 0) {
       const t     = Math.min(1, this.levelUpFlash / 2.0);
-      const alpha = t * 0.4;
       const rgb   = this._hex2rgb(skin.stroke);
-      ctx.fillStyle = `rgba(${rgb},${alpha})`;
+      ctx.fillStyle = `rgba(${rgb},${t * 0.38})`;
       ctx.fillRect(0, 0, W, H);
 
-      const scale = 1 + t * 0.15;
-      ctx.textAlign = 'center';
-      ctx.font      = `bold ${Math.round(52 * scale)}px monospace`;
-      ctx.fillStyle = `rgba(255,255,255,${t})`;
+      // pixel border flash
+      ctx.fillStyle = `rgba(${rgb},${t * 0.9})`;
+      ctx.fillRect(0, 0, W, 6);
+      ctx.fillRect(0, H - 6, W, 6);
+      ctx.fillRect(0, 0, 6, H);
+      ctx.fillRect(W - 6, 0, 6, H);
+
+      ctx.font         = `18px ${PX_FONT}`;
+      ctx.fillStyle    = `rgba(255,255,255,${t})`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(`LEVEL ${this.levelUpNum}!`, W / 2, H / 2 - 18);
 
-      ctx.font      = '20px monospace';
+      ctx.font      = `8px ${PX_FONT}`;
       ctx.fillStyle = `rgba(220,200,255,${t * 0.9})`;
-      ctx.fillText(`${getSkin().name} skin unlocked`, W / 2, H / 2 + 28);
+      ctx.fillText(`${getSkin().name} UNLOCKED`, W / 2, H / 2 + 28);
     }
 
     ctx.restore();

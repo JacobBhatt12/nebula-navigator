@@ -2,14 +2,14 @@ const XP_PER_STAR = 10;
 
 const THRESHOLDS = [0, 50, 120, 210, 320, 450];
 
-// hull/stroke → ship body color; wing → side pods; cockpit → dome
+// hull/stroke → ship body; wing → side panels; cockpit → dome/window
 export const SKINS = [
-  { name: 'Cadet',     hull: '#e86020', stroke: '#ff9040', wing: '#1a4a7a', cockpit: '#2080c8' },
-  { name: 'Voyager',   hull: '#d82020', stroke: '#ff5050', wing: '#6a0a20', cockpit: '#c01040' },
-  { name: 'Sunfire',   hull: '#d89000', stroke: '#ffe040', wing: '#6a4400', cockpit: '#a07000' },
-  { name: 'Verdant',   hull: '#208050', stroke: '#40e880', wing: '#0a4020', cockpit: '#106040' },
-  { name: 'Phantom',   hull: '#007898', stroke: '#00d8d8', wing: '#003858', cockpit: '#005070' },
-  { name: 'Prismatic', hull: '#8020a0', stroke: '#d060ff', wing: '#400060', cockpit: '#600080' },
+  { name: 'Cadet',     hull: '#c8d8e8', stroke: '#ffffff', wing: '#3870b8', cockpit: '#38a0ff' },
+  { name: 'Voyager',   hull: '#c01818', stroke: '#ff3838', wing: '#780808', cockpit: '#ff2020' },
+  { name: 'Sunfire',   hull: '#d8a010', stroke: '#ffe030', wing: '#885800', cockpit: '#ffc800' },
+  { name: 'Verdant',   hull: '#18c040', stroke: '#40ff70', wing: '#087828', cockpit: '#28ff58' },
+  { name: 'Phantom',   hull: '#1068c8', stroke: '#00d8ff', wing: '#083060', cockpit: '#00c0ff' },
+  { name: 'Prismatic', hull: '#8010c8', stroke: '#c838ff', wing: '#480070', cockpit: '#b028ff' },
 ];
 
 let xp    = 0;

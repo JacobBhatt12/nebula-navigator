@@ -4,28 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nebula Navigator</title>
-  <link rel="stylesheet" href="/src/styles/main.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
-
-  <video id="webcam" autoplay playsinline muted></video>
-
-  <script type="module">
-    import { startGame } from '/src/game/gameLoop.js';
-
-    async function initWebcam() {
-      const video = document.getElementById('webcam');
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        video.srcObject = stream;
-      } catch (err) {
-        console.warn('Webcam unavailable:', err.message);
-      }
-    }
-
-    initWebcam();
-    startGame();
-  </script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

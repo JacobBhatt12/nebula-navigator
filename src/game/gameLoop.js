@@ -22,11 +22,39 @@ let state = GameState.IDLE;
 function setState(next) {
   state = next;
   document.body.classList.toggle('calibrating', next === GameState.CALIBRATING);
+  window.dispatchEvent(new CustomEvent('nebula:game-state', { detail: { state: next } }));
+}
+
+function ensureDomRefs() {
+  if (canvas && ctx && webcamEl) return true;
+  canvas = document.getElementById('gameCanvas');
+  webcamEl = document.getElementById('webcam');
+  if (!canvas || !webcamEl) return false;
+  ctx = canvas.getContext('2d');
+  return Boolean(ctx);
+}
+
+function triggerPrimaryAction() {
+  if (state === GameState.IDLE) {
+    calibTimer = 0;
+    setState(GameState.CALIBRATING);
+    runCalibration(10_000).then(() => {
+      if (state === GameState.CALIBRATING) {
+        _applyCalibrationBounds();
+        startSession();
+      }
+    });
+  } else if (state === GameState.CALIBRATING) {
+    startSession();   // dev bypass
+  } else if (state === GameState.ENDED) {
+    resetSession();
+    setState(GameState.IDLE);
+  }
 }
 
 // ─── Canvas Setup ─────────────────────────────────────────────────────────────
-const canvas = document.getElementById('gameCanvas');
-const ctx    = canvas.getContext('2d');
+let canvas = null;
+let ctx    = null;
 
 // ─── Game Objects ─────────────────────────────────────────────────────────────
 const ship      = new Ship(0, 0);
@@ -35,7 +63,7 @@ const rightArm  = new Arm('right');
 const meteors   = new MeteorManager();
 const stardust  = new StardustManager();
 const hud       = new HUD();
-const webcamEl  = document.getElementById('webcam');
+let webcamEl  = null;
 
 // ─── Session State ────────────────────────────────────────────────────────────
 const MAX_HITS    = 3;
@@ -49,16 +77,17 @@ let bgTime       = 0;
 let rafId        = null;
 let lastTime     = 0;
 
-// Pre-computed background star field — generated once, reused every frame
+// Pre-computed pixel background star field
 const bgStars = (function () {
-  const colors = ['#ffffff', '#ffe8a0', '#a0e8ff', '#ffa0d8', '#a0ffb8', '#c0a0ff'];
-  return Array.from({ length: 130 }, () => ({
-    x: Math.random(),
-    y: Math.random(),
-    r: 0.6 + Math.random() * 2.2,
-    color: colors[Math.floor(Math.random() * colors.length)],
-    phase: Math.random() * Math.PI * 2,
-    speed: 0.6 + Math.random() * 2.2,
+  const colors = ['#ffffff', '#ffe8c0', '#a0e8ff', '#ffa0d8', '#a0ffb8', '#c0a0ff', '#ffff80'];
+  // mix of single-pixel dots and cross sparkles
+  return Array.from({ length: 150 }, () => ({
+    x:       Math.random(),
+    y:       Math.random(),
+    size:    Math.random() < 0.15 ? 3 : 1, // 15% are cross sparkles (size=3), rest are dots
+    color:   colors[Math.floor(Math.random() * colors.length)],
+    phase:   Math.random() * Math.PI * 2,
+    speed:   0.5 + Math.random() * 2.0,
   }));
 }());
 
@@ -76,23 +105,7 @@ let rTargetX = 0, rTargetY = 0;
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Space') return;
   e.preventDefault();
-
-  if (state === GameState.IDLE) {
-    calibTimer = 0;
-    setState(GameState.CALIBRATING);
-    runCalibration(10_000).then(() => {
-      if (state === GameState.CALIBRATING) {
-        // derive spawn bounds from what the user actually reached
-        _applyCalibrationBounds();
-        startSession();
-      }
-    });
-  } else if (state === GameState.CALIBRATING) {
-    startSession();   // dev bypass
-  } else if (state === GameState.ENDED) {
-    resetSession();
-    setState(GameState.IDLE);
-  }
+  triggerPrimaryAction();
 });
 
 function checkCalibration() {
@@ -279,14 +292,22 @@ function drawBackground() {
     ctx.fill();
   });
 
-  // twinkling background stars
-  bgStars.forEach(({ x, y, r, color, phase, speed }) => {
-    const alpha = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(bgTime * speed + phase));
-    ctx.beginPath();
-    ctx.arc(x * W, y * H, r, 0, Math.PI * 2);
-    ctx.fillStyle   = color;
+  // pixel twinkling stars — dots and cross sparkles
+  ctx.imageSmoothingEnabled = false;
+  bgStars.forEach(({ x, y, size, color, phase, speed }) => {
+    const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(bgTime * speed + phase));
+    const sx    = Math.round(x * W);
+    const sy    = Math.round(y * H);
     ctx.globalAlpha = alpha;
-    ctx.fill();
+    ctx.fillStyle   = color;
+    if (size === 1) {
+      ctx.fillRect(sx, sy, 2, 2); // pixel dot
+    } else {
+      // cross sparkle
+      ctx.fillRect(sx - 4, sy, 9, 2); // horizontal arm
+      ctx.fillRect(sx, sy - 4, 2, 9); // vertical arm
+      ctx.fillRect(sx, sy, 2, 2);     // bright center
+    }
   });
   ctx.globalAlpha = 1;
 }
@@ -501,26 +522,141 @@ function drawCalibrationGuide() {
 }
 
 function drawOverlay(title, subtitle) {
+  const W = canvas.width, H = canvas.height;
   ctx.save();
-  ctx.fillStyle = 'rgba(5, 5, 15, 0.78)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = false;
 
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#d0c0ff';
-  ctx.font      = 'bold 48px monospace';
-  ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 20);
+  // dark semi-transparent panel
+  ctx.fillStyle = 'rgba(2, 4, 18, 0.86)';
+  ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = '#8878cc';
-  ctx.font      = '22px monospace';
-  ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 28);
+  // pixel-border box
+  const bw = Math.min(W - 60, 600), bh = 220;
+  const bx = (W - bw) / 2, by = H / 2 - bh / 2;
+  ctx.fillStyle = '#0a0820';
+  ctx.fillRect(bx, by, bw, bh);
+  // pixel corner border (4px wide)
+  ctx.fillStyle = '#5030c0';
+  ctx.fillRect(bx,          by,          bw, 4);
+  ctx.fillRect(bx,          by + bh - 4, bw, 4);
+  ctx.fillRect(bx,          by,          4, bh);
+  ctx.fillRect(bx + bw - 4, by,          4, bh);
+  // corner accent pixels
+  ctx.fillStyle = '#a070ff';
+  ctx.fillRect(bx,          by,          8, 8);
+  ctx.fillRect(bx + bw - 8, by,          8, 8);
+  ctx.fillRect(bx,          by + bh - 8, 8, 8);
+  ctx.fillRect(bx + bw - 8, by + bh - 8, 8, 8);
+
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font         = `16px "Press Start 2P", monospace`;
+  ctx.fillStyle    = '#d0b8ff';
+  ctx.fillText(title, W / 2, by + bh * 0.38);
+
+  ctx.font      = `8px "Press Start 2P", monospace`;
+  ctx.fillStyle = '#7860d0';
+  ctx.fillText(subtitle, W / 2, by + bh * 0.68);
+
+  ctx.restore();
+}
+
+function drawIdleScreen() {
+  const W = canvas.width, H = canvas.height;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = 'rgba(2, 4, 18, 0.75)';
+  ctx.fillRect(0, 0, W, H);
+
+  // title banner
+  const bw = Math.min(W - 40, 680), bh = 56;
+  const bx = (W - bw) / 2, by = H * 0.10;
+  ctx.fillStyle = '#0a0830';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = '#00a8ff';
+  ctx.fillRect(bx, by, bw, 4);
+  ctx.fillRect(bx, by + bh - 4, bw, 4);
+  ctx.fillStyle = '#0080d0';
+  ctx.fillRect(bx, by, 4, bh);
+  ctx.fillRect(bx + bw - 4, by, 4, bh);
+
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font         = `18px "Press Start 2P", monospace`;
+  ctx.fillStyle    = '#00e8ff';
+  ctx.shadowColor  = 'rgba(0,220,255,0.7)';
+  ctx.shadowBlur   = 12;
+  ctx.fillText('NEBULA  NAVIGATOR', W / 2, by + bh / 2);
+  ctx.shadowBlur   = 0;
+
+  // animated demo ship (draw current Cadet ship skin in center)
+  ctx.save();
+  ctx.translate(W / 2, H * 0.42);
+  // simple white pixel ship preview
+  const P = 4;
+  const r = (x,y,w,h,col) => { ctx.fillStyle=col; ctx.fillRect(x*P,y*P,w*P,h*P); };
+  r(-4, 1, 4, 5, '#3870b8'); r( 0, 1, 4, 5, '#3870b8');  // wings
+  r(-1,-9, 2, 1, '#c8d8e8'); r(-2,-8, 4, 1, '#c8d8e8');  // nose
+  r(-3,-7, 6, 2, '#c8d8e8'); r(-4,-5, 8,10, '#c8d8e8');  // body
+  r(-3, 5, 6, 3, '#c8d8e8'); r(-2, 8, 4, 1, '#c8d8e8');
+  r(-2,-7, 4, 4, '#38a0ff');  // cockpit
+  r(-4,-2, 8, 1, '#ffffff');  // stripe
+  // thrust
+  const f = 0.7 + 0.3 * Math.sin(bgTime * 9);
+  const tlen = 3 + Math.round(3 * f);
+  for (let i = 0; i < tlen; i++) {
+    const a = ((1 - i/tlen) * 0.9 * f).toFixed(2);
+    ctx.fillStyle = `rgba(0,220,255,${a})`;
+    ctx.fillRect(-2*P, (9+i)*P, 4*P, P);
+    ctx.fillStyle = `rgba(255,255,255,${((1 - i/tlen)*f*0.8).toFixed(2)})`;
+    ctx.fillRect(-P, (9+i)*P, 2*P, P);
+  }
+  ctx.restore();
+
+  // how to play panel
+  const iw = Math.min(W - 80, 560), ih = 130;
+  const ix = (W - iw) / 2, iy = H * 0.60;
+  ctx.fillStyle = 'rgba(8, 6, 30, 0.9)';
+  ctx.fillRect(ix, iy, iw, ih);
+  ctx.fillStyle = '#2820a0';
+  ctx.fillRect(ix, iy, iw, 3);
+  ctx.fillRect(ix, iy + ih - 3, iw, 3);
+  ctx.fillRect(ix, iy, 3, ih);
+  ctx.fillRect(ix + iw - 3, iy, 3, ih);
+
+  ctx.font         = `7px "Press Start 2P", monospace`;
+  ctx.fillStyle    = '#8890d0';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'top';
+  const lines = [
+    '>> HOW TO PLAY',
+    '',
+    '  BODY  - lean to steer your ship',
+    '  ARMS  - hold wrist on stars to collect',
+    '  DODGE - avoid the incoming meteors',
+  ];
+  lines.forEach((line, i) => {
+    ctx.fillStyle = i === 0 ? '#a0c0ff' : '#8890d0';
+    ctx.fillText(line, ix + 18, iy + 14 + i * 18);
+  });
+
+  // blinking PRESS SPACE
+  if (Math.floor(bgTime * 2) % 2 === 0) {
+    ctx.font      = `10px "Press Start 2P", monospace`;
+    ctx.fillStyle = '#ffe840';
+    ctx.textAlign = 'center';
+    ctx.fillText('[ PRESS SPACE TO START ]', W / 2, H * 0.90);
+  }
+
   ctx.restore();
 }
 
 function draw() {
+  ctx.imageSmoothingEnabled = false;
   drawBackground();
 
   if (state === GameState.IDLE) {
-    drawOverlay('NEBULA NAVIGATOR', 'Press SPACE to begin');
+    drawIdleScreen();
     return;
   }
 
@@ -575,9 +711,14 @@ function loop(timestamp) {
 }
 
 export function startGame() {
+  if (!ensureDomRefs()) {
+    console.warn('[GameLoop] Missing required DOM nodes: #gameCanvas or #webcam');
+    return;
+  }
   resize();
   window.addEventListener('resize', resize);
   initPoseEngine().catch(err => console.warn('[PoseEngine] init failed:', err));
+  setState(GameState.IDLE);
   lastTime = performance.now();
   rafId    = requestAnimationFrame(loop);
 }
@@ -586,4 +727,12 @@ export function stopGame() {
   cancelAnimationFrame(rafId);
   rafId = null;
   window.removeEventListener('resize', resize);
+}
+
+export function requestPrimaryAction() {
+  triggerPrimaryAction();
+}
+
+export function getGameState() {
+  return state;
 }

@@ -1,6 +1,6 @@
 const HOLD_DURATION = 1.5;
 const STAR_LIFETIME = 8.0;
-const FLY_DURATION  = 0.30;
+const CARRY_DURATION  = 0.62;
 const GRAB_RADIUS_DEFAULT = 55;
 
 // Pixel-art palettes for each star type
@@ -70,8 +70,8 @@ export class Stardust {
     this.palette    = PALETTES[Math.floor(Math.random() * PALETTES.length)];
     this._spin      = 0;
     this.lockedBy   = null;
-    this.flying     = false;
-    this.flyTimer   = 0;
+    this.carrying   = false;
+    this.carryTimer = 0;
     this._flyStartX = 0;
     this._flyStartY = 0;
     this._xpPending = false;
@@ -88,13 +88,13 @@ export class Stardust {
     this._spin     += dt * 0.6;
     this.lifeTimer += dt;
 
-    if (this.flying) {
-      this.flyTimer += dt;
-      const t    = Math.min(1, this.flyTimer / FLY_DURATION);
+    if (this.carrying) {
+      this.carryTimer += dt;
+      const t    = Math.min(1, this.carryTimer / CARRY_DURATION);
       const ease = 1 - (1 - t) * (1 - t);
       this.x = this._flyStartX + (shipX - this._flyStartX) * ease;
       this.y = this._flyStartY + (shipY - this._flyStartY) * ease;
-      if (this.flyTimer >= FLY_DURATION) this.collected = true;
+      if (this.carryTimer >= CARRY_DURATION) this.collected = true;
       return;
     }
 
@@ -120,8 +120,15 @@ export class Stardust {
 
     if (inRange) {
       this.holdTimer += dt;
+      // Pull the star into the selected hand so the grab reads visually.
+      const handX = this.lockedBy === 'left' ? lwx : rwx;
+      const handY = this.lockedBy === 'left' ? lwy : rwy;
+      const pull = Math.min(1, dt * (4.5 + this.progress * 9));
+      this.x += (handX - this.x) * pull;
+      this.y += (handY - this.y) * pull;
+
       if (this.holdTimer >= HOLD_DURATION) {
-        this.flying     = true;
+        this.carrying   = true;
         this._xpPending = true;
         this._collectionLatencyMs = Math.round(this.lifeTimer * 1000);
         this._collectedBy = this.lockedBy || 'unknown';
@@ -142,17 +149,25 @@ export class Stardust {
   get timeLeft()  { return Math.max(0, STAR_LIFETIME - this.lifeTimer); }
 
   draw(ctx) {
-    const { x, y, radius: r, pulse, palette, timeLeft, flying, flyTimer } = this;
+    const { x, y, radius: r, pulse, palette, timeLeft, carrying, carryTimer } = this;
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
 
-    if (flying) {
-      const t   = Math.min(1, flyTimer / FLY_DURATION);
-      ctx.globalAlpha = 1 - t * 0.6;
+    if (carrying) {
+      const t   = Math.min(1, carryTimer / CARRY_DURATION);
+      ctx.globalAlpha = 1 - t * 0.30;
       ctx.translate(x, y);
-      ctx.scale(1 - t * 0.75, 1 - t * 0.75);
+      ctx.scale(1 - t * 0.28, 1 - t * 0.28);
+      const streak = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r * 2.1);
+      streak.addColorStop(0, `${palette.fill}77`);
+      streak.addColorStop(1, `${palette.fill}00`);
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 2.1, 0, Math.PI * 2);
+      ctx.fillStyle = streak;
+      ctx.fill();
       _drawPixelStarBody(ctx, 0, 0, r, palette);
+      _drawPixelFace(ctx, 0, 0, r, palette.face);
       ctx.restore();
       return;
     }
@@ -232,7 +247,7 @@ export class StardustManager {
 
   getGrabbedBy(side) {
     return this.targets.find(
-      t => !t.collected && !t.expired && t.lockedBy === side && (t.holdTimer > 0 || t.flying)
+      t => !t.collected && !t.expired && t.lockedBy === side && (t.holdTimer > 0 || t.carrying)
     ) ?? null;
   }
 

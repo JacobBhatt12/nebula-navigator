@@ -852,21 +852,19 @@ function draw() {
     return;
   }
 
-  // PLAYING or ENDED — draw the game world (use smoothed wrist positions)
-  const lwx = smoothLwx, lwy = smoothLwy;
-  const rwx = smoothRwx, rwy = smoothRwy;
+  // PLAYING or ENDED — draw the game world
 
   meteors.draw(ctx);
-
-  // clamp so left arm never crosses right of ship and vice-versa
-  leftArm.draw(ctx,  ship.x - 28, ship.y - 8, lTargetX, lTargetY,  leftGrabbed);
-  rightArm.draw(ctx, ship.x + 28, ship.y - 8, rTargetX, rTargetY, rightGrabbed);
 
   // J3.1 — ship renders with current skin
   ship.draw(ctx, getSkin());
 
   // stars render in front of ship so they're always visible and grabbable
   stardust.draw(ctx);
+
+  // draw arms on top so the hand visibly grips carried stars
+  leftArm.draw(ctx,  ship.x - 28, ship.y - 8, lTargetX, lTargetY,  leftGrabbed);
+  rightArm.draw(ctx, ship.x + 28, ship.y - 8, rTargetX, rTargetY, rightGrabbed);
 
   // J3.2 — HUD: XP bar, level badge, score, timer, health
   hud.draw(ctx, canvas, {

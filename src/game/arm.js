@@ -86,57 +86,18 @@ export class Arm {
     ctx.globalAlpha = 1;
 
     // upper arm segment
-    const upGrad = ctx.createLinearGradient(originX, originY, elbowX, elbowY);
-    upGrad.addColorStop(0, '#9aa4c0');
-    upGrad.addColorStop(1, '#606880');
-    ctx.beginPath();
-    ctx.moveTo(originX, originY);
-    ctx.lineTo(elbowX, elbowY);
-    ctx.strokeStyle = upGrad;
-    ctx.lineWidth   = 10;
-    ctx.lineCap     = 'butt';
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(originX, originY);
-    ctx.lineTo(elbowX, elbowY);
-    ctx.strokeStyle = 'rgba(210, 220, 240, 0.42)';
-    ctx.lineWidth   = 3.5;
-    ctx.stroke();
-
+    _drawArmSegment(ctx, originX, originY, elbowX, elbowY, 11, '#a8b4d4', '#5d6a88');
     // forearm segment
-    const loGrad = ctx.createLinearGradient(elbowX, elbowY, tx, ty);
-    loGrad.addColorStop(0, '#788098');
-    loGrad.addColorStop(1, '#485070');
-    ctx.beginPath();
-    ctx.moveTo(elbowX, elbowY);
-    ctx.lineTo(tx, ty);
-    ctx.strokeStyle = loGrad;
-    ctx.lineWidth   = 8;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(elbowX, elbowY);
-    ctx.lineTo(tx, ty);
-    ctx.strokeStyle = 'rgba(180, 195, 220, 0.38)';
-    ctx.lineWidth   = 2.5;
-    ctx.stroke();
+    _drawArmSegment(ctx, elbowX, elbowY, tx, ty, 9, '#8798bb', '#475670');
 
     _drawJoint(ctx, originX, originY, 8, '#d0d8f0', '#4050a8');
     _drawJoint(ctx, elbowX,   elbowY, 7, '#c0c8e0', '#384090');
 
-    // wrist: claw when grabbing a star, glow orb otherwise
+    // wrist: mechanical claw at all times (open when searching, closed when grabbing)
     if (grabbedStar) {
       _drawGrabClaw(ctx, tx, ty, grabbedStar.progress);
     } else {
-      const wGrad = ctx.createRadialGradient(tx, ty, 1, tx, ty, 13);
-      wGrad.addColorStop(0,   'rgba(160, 225, 255, 1)');
-      wGrad.addColorStop(0.4, 'rgba(80, 160, 255, 0.65)');
-      wGrad.addColorStop(1,   'rgba(80, 100, 255, 0)');
-      ctx.beginPath();
-      ctx.arc(tx, ty, 13, 0, Math.PI * 2);
-      ctx.fillStyle = wGrad;
-      ctx.fill();
+      _drawOpenClaw(ctx, tx, ty);
     }
 
     ctx.restore();
@@ -145,8 +106,8 @@ export class Arm {
 
 function _drawGrabClaw(ctx, x, y, progress) {
   ctx.save();
-  const size    = 10 + progress * 7;
-  const squeeze = progress * 0.55;
+  const size    = 10 + progress * 5;
+  const squeeze = 0.35 + progress * 0.55;
 
   const gGrad = ctx.createRadialGradient(x, y, 2, x, y, size * 2.4);
   gGrad.addColorStop(0,    `rgba(255, 255, 80,  ${0.45 + progress * 0.45})`);
@@ -157,27 +118,102 @@ function _drawGrabClaw(ctx, x, y, progress) {
   ctx.fillStyle = gGrad;
   ctx.fill();
 
-  const cr = Math.round(160 + progress * 95);
-  const cg = Math.round(225 - progress * 80);
-  ctx.strokeStyle = `rgba(${cr}, ${cg}, 255, 0.95)`;
-  ctx.lineWidth   = 3;
-  ctx.lineCap     = 'round';
+  const palmW = size * 1.25;
+  const palmH = size * 0.95;
+  const palm = ctx.createLinearGradient(x - palmW / 2, y - palmH / 2, x + palmW / 2, y + palmH / 2);
+  palm.addColorStop(0, '#c8d4ee');
+  palm.addColorStop(1, '#5c6f95');
+  ctx.fillStyle = palm;
+  ctx.fillRect(x - palmW / 2, y - palmH / 2, palmW, palmH);
+  ctx.strokeStyle = 'rgba(220, 235, 255, 0.65)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x - palmW / 2, y - palmH / 2, palmW, palmH);
 
-  [-0.38, 0, 0.38].forEach(offset => {
-    const angle = -Math.PI / 2 + offset * Math.PI * (1 - squeeze * 0.65);
-    const ex    = x + Math.cos(angle) * size;
-    const ey    = y + Math.sin(angle) * size;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(ex, ey);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(ex, ey, size * 0.32, angle - Math.PI * 0.65, angle + Math.PI * 0.28);
-    ctx.stroke();
-  });
+  const jawOpen = Math.PI * (0.28 - squeeze * 0.16);
+  _drawPincer(ctx, x, y, size * 0.95, -Math.PI / 2 - jawOpen);
+  _drawPincer(ctx, x, y, size * 0.95, -Math.PI / 2 + jawOpen);
+  _drawPincer(ctx, x, y, size * 0.86, -Math.PI / 2 - jawOpen * 0.62);
+  _drawPincer(ctx, x, y, size * 0.86, -Math.PI / 2 + jawOpen * 0.62);
 
-  _drawJoint(ctx, x, y, 5 + progress * 2.5, '#ffe080', '#b87800');
+  _drawJoint(ctx, x, y, 4.8 + progress * 1.9, '#ffe080', '#b87800');
   ctx.restore();
+}
+
+function _drawOpenClaw(ctx, x, y) {
+  ctx.save();
+  const size = 10.5;
+  const aura = ctx.createRadialGradient(x, y, 2, x, y, size * 2.2);
+  aura.addColorStop(0, 'rgba(120, 215, 255, 0.28)');
+  aura.addColorStop(1, 'rgba(120, 215, 255, 0)');
+  ctx.beginPath();
+  ctx.arc(x, y, size * 2.2, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
+  ctx.fill();
+
+  const palm = ctx.createLinearGradient(x - size, y - size, x + size, y + size);
+  palm.addColorStop(0, '#d4def2');
+  palm.addColorStop(1, '#687b9d');
+  ctx.fillStyle = palm;
+  ctx.fillRect(x - size * 0.78, y - size * 0.52, size * 1.56, size * 1.04);
+  ctx.strokeStyle = 'rgba(220, 235, 255, 0.6)';
+  ctx.lineWidth = 1.4;
+  ctx.strokeRect(x - size * 0.78, y - size * 0.52, size * 1.56, size * 1.04);
+
+  _drawPincer(ctx, x, y, size * 0.95, -Math.PI / 2 - 0.34);
+  _drawPincer(ctx, x, y, size * 0.95, -Math.PI / 2 + 0.34);
+  _drawJoint(ctx, x, y, 4.8, '#c8ecff', '#5776a4');
+  ctx.restore();
+}
+
+function _drawPincer(ctx, x, y, len, angle) {
+  const bx = x + Math.cos(angle) * (len * 0.16);
+  const by = y + Math.sin(angle) * (len * 0.16);
+  const tx = x + Math.cos(angle) * len;
+  const ty = y + Math.sin(angle) * len;
+
+  ctx.strokeStyle = 'rgba(168, 206, 245, 0.95)';
+  ctx.lineWidth = 2.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(bx, by);
+  ctx.lineTo(tx, ty);
+  ctx.stroke();
+
+  const hookR = Math.max(2.8, len * 0.22);
+  ctx.beginPath();
+  ctx.arc(tx, ty, hookR, angle - Math.PI * 0.72, angle + Math.PI * 0.14);
+  ctx.stroke();
+}
+
+function _drawArmSegment(ctx, x1, y1, x2, y2, width, lightHex, darkHex) {
+  const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+  grad.addColorStop(0, lightHex);
+  grad.addColorStop(1, darkHex);
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = 'rgba(224, 234, 255, 0.42)';
+  ctx.lineWidth = Math.max(2, width * 0.31);
+  ctx.stroke();
+
+  // Add a small cable line down the center so the segment reads as machinery.
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = 'rgba(38, 46, 64, 0.55)';
+  ctx.lineWidth = Math.max(1.5, width * 0.14);
+  ctx.setLineDash([4, 5]);
+  ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 function _drawJoint(ctx, x, y, r, lightColor, darkColor) {

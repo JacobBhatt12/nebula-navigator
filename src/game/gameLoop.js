@@ -400,26 +400,26 @@ function update(dt) {
 function drawBackground() {
   const W = canvas.width, H = canvas.height;
 
-  // deep space base
-  const base = ctx.createLinearGradient(0, 0, W * 0.4, H);
-  base.addColorStop(0,   '#0d0520');
-  base.addColorStop(0.5, '#150830');
-  base.addColorStop(1,   '#080428');
+  // cosmic base closer to welcome page design
+  const base = ctx.createLinearGradient(0, 0, W, H);
+  base.addColorStop(0,   '#070b1c');
+  base.addColorStop(0.45,'#0b1234');
+  base.addColorStop(1,   '#18052e');
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, W, H);
 
   // nebula cloud blobs
   const blobs = [
-    { nx: 0.18, ny: 0.28, nr: 0.38, rgb: '110, 35, 200', ph: 0.0  },
-    { nx: 0.72, ny: 0.18, nr: 0.30, rgb:  '70, 20, 160', ph: 1.5  },
-    { nx: 0.50, ny: 0.62, nr: 0.44, rgb:  '50, 70, 210', ph: 0.8  },
-    { nx: 0.88, ny: 0.72, nr: 0.26, rgb:  '90, 25, 175', ph: 2.2  },
-    { nx: 0.12, ny: 0.78, nr: 0.24, rgb:  '35, 55, 190', ph: 3.1  },
-    { nx: 0.55, ny: 0.35, nr: 0.22, rgb: '140, 30, 220', ph: 4.0  },
+    { nx: 0.17, ny: 0.24, nr: 0.40, rgb:  '0, 185, 255', ph: 0.0  },
+    { nx: 0.72, ny: 0.16, nr: 0.32, rgb: '130, 40, 255', ph: 1.5  },
+    { nx: 0.50, ny: 0.60, nr: 0.46, rgb:  '0, 120, 255', ph: 0.8  },
+    { nx: 0.88, ny: 0.74, nr: 0.28, rgb: '255, 0, 204',  ph: 2.2  },
+    { nx: 0.12, ny: 0.80, nr: 0.25, rgb: '70, 70, 240',  ph: 3.1  },
+    { nx: 0.58, ny: 0.34, nr: 0.24, rgb: '110, 25, 235', ph: 4.0  },
   ];
   blobs.forEach(({ nx, ny, nr, rgb, ph }) => {
     const bx = W * nx, by = H * ny, br = Math.min(W, H) * nr;
-    const a  = 0.10 + 0.04 * Math.sin(bgTime * 0.25 + ph);
+    const a  = 0.13 + 0.05 * Math.sin(bgTime * 0.25 + ph);
     const g  = ctx.createRadialGradient(bx, by, br * 0.08, bx, by, br);
     g.addColorStop(0,   `rgba(${rgb}, ${a})`);
     g.addColorStop(0.55, `rgba(${rgb}, ${a * 0.45})`);
@@ -474,16 +474,22 @@ function drawCalibrationGuide() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // dark tint so guide graphics pop
-  ctx.fillStyle = 'rgba(5, 5, 15, 0.52)';
+  // dark tint + subtle center glow to match welcome screen palette
+  ctx.fillStyle = 'rgba(3, 7, 20, 0.6)';
+  ctx.fillRect(0, 0, W, H);
+  const centerGlow = ctx.createRadialGradient(cx, cy, 30, cx, cy, Math.min(W, H) * 0.72);
+  centerGlow.addColorStop(0, 'rgba(0, 160, 255, 0.18)');
+  centerGlow.addColorStop(0.45, 'rgba(170, 40, 255, 0.10)');
+  centerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = centerGlow;
   ctx.fillRect(0, 0, W, H);
 
   // ── scanning line ───────────────────────────────────────────────────────────
-  const scanY = ((calibTimer * 0.12) % 1) * H;
+  const scanY = ((calibTimer * 0.11) % 1) * H;
   const scanGrad = ctx.createLinearGradient(0, scanY - 50, 0, scanY + 50);
-  scanGrad.addColorStop(0,   'rgba(120, 80, 255, 0)');
-  scanGrad.addColorStop(0.5, `rgba(120, 80, 255, ${0.28 + pulse * 0.12})`);
-  scanGrad.addColorStop(1,   'rgba(120, 80, 255, 0)');
+  scanGrad.addColorStop(0,   'rgba(0, 232, 255, 0)');
+  scanGrad.addColorStop(0.5, `rgba(0, 232, 255, ${0.18 + pulse * 0.12})`);
+  scanGrad.addColorStop(1,   'rgba(0, 232, 255, 0)');
   ctx.fillStyle = scanGrad;
   ctx.fillRect(0, scanY - 50, W, 100);
 
@@ -498,7 +504,7 @@ function drawCalibrationGuide() {
   const shoulderY    = neckY + headR * 0.4;
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(180, 150, 255, 0.6)';
+  ctx.strokeStyle = 'rgba(90, 220, 255, 0.72)';
   ctx.lineWidth   = 2.5;
   ctx.lineCap     = 'round';
   ctx.lineJoin    = 'round';
@@ -553,7 +559,7 @@ function drawCalibrationGuide() {
     // dashed TARGET ring (outer guide — fixed, shows ideal reach)
     ctx.beginPath();
     ctx.arc(tx, shoulderY, targetR, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(80, 80, 180, ${0.3 + pulse * 0.15})`;
+    ctx.strokeStyle = `rgba(255, 0, 204, ${0.34 + pulse * 0.14})`;
     ctx.lineWidth   = 1.5;
     ctx.setLineDash([4, 6]);
     ctx.stroke();
@@ -563,7 +569,7 @@ function drawCalibrationGuide() {
     ctx.beginPath();
     ctx.moveTo(shoulder, shoulderY);
     ctx.lineTo(rx, ry);
-    ctx.strokeStyle = `rgba(160, 130, 255, ${0.35 + pulse * 0.2})`;
+    ctx.strokeStyle = `rgba(110, 220, 255, ${0.32 + pulse * 0.2})`;
     ctx.lineWidth   = 1.5;
     ctx.setLineDash([5, 5]);
     ctx.stroke();
@@ -572,8 +578,8 @@ function drawCalibrationGuide() {
     // ACTUAL reach circle — grows as user reaches further
     const r = recorded ? Math.max(targetR * 0.4, targetR * 1.2) : targetR * 0.4;
     const glow = ctx.createRadialGradient(rx, ry, 2, rx, ry, r * 1.8);
-    glow.addColorStop(0,   `rgba(0, 220, 255, ${recorded ? 0.28 + pulse * 0.15 : 0.10})`);
-    glow.addColorStop(0.6, `rgba(0, 160, 255, ${recorded ? 0.12 : 0.04})`);
+    glow.addColorStop(0,   `rgba(0, 232, 255, ${recorded ? 0.34 + pulse * 0.18 : 0.12})`);
+    glow.addColorStop(0.6, `rgba(255, 0, 204, ${recorded ? 0.14 : 0.05})`);
     glow.addColorStop(1,   'rgba(0, 160, 255, 0)');
     ctx.beginPath();
     ctx.arc(rx, ry, r * 1.8, 0, Math.PI * 2);
@@ -582,25 +588,26 @@ function drawCalibrationGuide() {
 
     ctx.beginPath();
     ctx.arc(rx, ry, r, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(0, 220, 255, ${recorded ? 0.7 + pulse * 0.3 : 0.3 + pulse * 0.2})`;
+    ctx.strokeStyle = `rgba(0, 232, 255, ${recorded ? 0.74 + pulse * 0.22 : 0.38 + pulse * 0.18})`;
     ctx.lineWidth   = recorded ? 2.5 : 1.5;
     ctx.stroke();
 
     // hand icon at actual reach point
     ctx.beginPath();
     ctx.arc(rx, ry, 11, 0, Math.PI * 2);
-    ctx.fillStyle   = `rgba(0, 210, 255, ${recorded ? 0.65 + pulse * 0.25 : 0.3})`;
+    ctx.fillStyle   = `rgba(0, 210, 255, ${recorded ? 0.72 + pulse * 0.2 : 0.35})`;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(220, 245, 255, 0.9)';
+    ctx.strokeStyle = 'rgba(230, 250, 255, 0.94)';
     ctx.lineWidth   = 1.5;
     ctx.stroke();
 
     // label
-    ctx.font         = 'bold 13px monospace';
-    ctx.fillStyle    = `rgba(0, 230, 255, ${recorded ? 0.9 : 0.5})`;
+    const reachLabelSize = Math.max(9, Math.min(12, Math.floor(W / 125)));
+    ctx.font         = `${reachLabelSize}px "Press Start 2P", monospace`;
+    ctx.fillStyle    = `rgba(175, 242, 255, ${recorded ? 1 : 0.62})`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(label, rx, ry + r + 6);
+    ctx.fillText(label, rx, ry + r + 16);
 
     ctx.restore();
   });
@@ -615,46 +622,63 @@ function drawCalibrationGuide() {
     // outer ring
     ctx.beginPath();
     ctx.arc(wx, wy, 18, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(255, 220, 0, ${0.6 + pulse * 0.3})`;
+    ctx.strokeStyle = `rgba(255, 0, 204, ${0.52 + pulse * 0.28})`;
     ctx.lineWidth   = 2.5;
     ctx.stroke();
     // inner dot
     ctx.beginPath();
     ctx.arc(wx, wy, 6, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 240, 80, ${0.8 + pulse * 0.2})`;
+    ctx.fillStyle = `rgba(0, 232, 255, ${0.75 + pulse * 0.2})`;
     ctx.fill();
     // label
-    ctx.font         = 'bold 11px monospace';
-    ctx.fillStyle    = 'rgba(255, 255, 200, 0.9)';
+    ctx.font         = `8px "Press Start 2P", monospace`;
+    ctx.fillStyle    = 'rgba(222, 248, 255, 0.95)';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, wx, wy);
     ctx.restore();
   });
 
-  // ── countdown ring ──────────────────────────────────────────────────────────
-  const ringR = 40;
+  // ── countdown badge (circular) ──────────────────────────────────────────────
+  const ringR = 34;
   const ringX = cx;
-  const ringY = H * 0.1;
+  const ringY = H * 0.122;
 
   ctx.save();
+  const halo = ctx.createRadialGradient(ringX, ringY, 8, ringX, ringY, ringR * 2.1);
+  halo.addColorStop(0, 'rgba(0, 232, 255, 0.20)');
+  halo.addColorStop(0.65, 'rgba(255, 0, 204, 0.10)');
+  halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(ringX, ringY, ringR * 2.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(ringX, ringY, ringR + 8, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(4, 8, 30, 0.82)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0, 232, 255, 0.75)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
   ctx.beginPath();
   ctx.arc(ringX, ringY, ringR, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  ctx.lineWidth   = 5;
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth   = 4;
   ctx.stroke();
 
   ctx.beginPath();
   ctx.arc(ringX, ringY, ringR, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
-  ctx.strokeStyle = `rgba(120, 80, 255, ${0.75 + pulse * 0.25})`;
-  ctx.lineWidth   = 5;
+  ctx.strokeStyle = `rgba(255, 0, 204, ${0.68 + pulse * 0.22})`;
+  ctx.lineWidth   = 4;
   ctx.lineCap     = 'round';
   ctx.stroke();
 
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font         = 'bold 30px monospace';
-  ctx.fillStyle    = '#d0c0ff';
+  ctx.font         = `18px "Press Start 2P", monospace`;
+  ctx.fillStyle    = '#d8f9ff';
   ctx.fillText(secsLeft, ringX, ringY);
   ctx.restore();
 
@@ -663,14 +687,28 @@ function drawCalibrationGuide() {
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'alphabetic';
 
-  ctx.font      = 'bold 24px monospace';
-  ctx.fillStyle = '#c8b8ff';
-  ctx.fillText('REACH SCAN', cx, H * 0.07);
+  ctx.font      = `12px "Press Start 2P", monospace`;
+  ctx.fillStyle = '#aef1ff';
+  ctx.fillText('REACH SCAN', cx, H * 0.05);
 
-  ctx.font      = '15px monospace';
-  ctx.fillStyle = 'rgba(160, 220, 255, 0.85)';
-  ctx.fillText('Step back • Stretch both arms to the glowing circles', cx, H * 0.9);
-  ctx.fillText('Press SPACE to skip', cx, H * 0.95);
+  const footerW = Math.min(860, W * 0.92);
+  const footerH = 88;
+  const footerX = cx - footerW / 2;
+  const footerY = H * 0.84;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
+  ctx.fillRect(footerX, footerY, footerW, footerH);
+  ctx.strokeStyle = 'rgba(255, 0, 204, 0.55)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(footerX, footerY, footerW, footerH);
+
+  const instructionSize = Math.max(6, Math.min(9, Math.floor(W / 150)));
+  const skipSize = Math.max(6, instructionSize - 1);
+  ctx.font      = `${instructionSize}px "Press Start 2P", monospace`;
+  ctx.fillStyle = 'rgba(190, 246, 255, 0.96)';
+  ctx.fillText('STEP BACK AND REACH BOTH ARMS TO THE GLOWING CIRCLES', cx, footerY + 34);
+  ctx.font      = `${skipSize}px "Press Start 2P", monospace`;
+  ctx.fillStyle = 'rgba(255, 225, 120, 0.98)';
+  ctx.fillText('PRESS SPACE TO SKIP', cx, footerY + 66);
   ctx.restore();
 }
 

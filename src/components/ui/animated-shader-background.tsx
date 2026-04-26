@@ -1,149 +1,154 @@
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import React, { useEffect, useRef } from "react";
+import * as THREE from "three";
 
-const vertexShader = /* glsl */`
-void main() {
-  gl_Position = vec4(position, 1.0);
-}
-`;
-
-const fragmentShader = /* glsl */`
-uniform float uTime;
-uniform vec2  uResolution;
-
-vec2 hash2(vec2 p) {
-  p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
-  return -1.0 + 2.0 * fract(sin(p) * 43758.5453);
-}
-
-float gnoise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(dot(hash2(i + vec2(0.0, 0.0)), f - vec2(0.0, 0.0)),
-        dot(hash2(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0)), u.x),
-    mix(dot(hash2(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0)),
-        dot(hash2(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0)), u.x),
-    u.y
-  );
-}
-
-float fbm(vec2 p) {
-  float v = 0.0;
-  float a = 0.5;
-  mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
-  for (int i = 0; i < 5; i++) {
-    v += a * gnoise(p);
-    p  = rot * p * 2.0 + vec2(100.0);
-    a *= 0.5;
-  }
-  return v;
-}
-
-void main() {
-  vec2 uv = gl_FragCoord.xy / uResolution.xy;
-  vec2 st = uv * 2.0 - 1.0;
-  st.x *= uResolution.x / uResolution.y;
-
-  float t = uTime * 0.12;
-
-  // Deep space base
-  vec3 col = vec3(0.008, 0.003, 0.028);
-
-  // 35 aurora strips layered across the screen
-  for (int i = 0; i < 35; i++) {
-    float fi     = float(i);
-    float yBand  = -0.95 + fi * 0.056;          // spread full height
-    float speed  = 0.03 + fi * 0.007;
-    float warpX  = fbm(vec2(st.x * 0.35 + t * speed,         t * 0.25 + fi * 0.63));
-    float warpY  = fbm(vec2(st.x * 0.28 + t * speed * 0.7,   t * 0.18 + fi * 1.1));
-    float band   = st.y - yBand + warpX * 0.72 + warpY * 0.38;
-    float tighten = 22.0 + 14.0 * sin(fi * 0.41);
-    float glow   = exp(-band * band * tighten);
-
-    // Hue cycles through cyan → purple → magenta → violet
-    float h   = fi * 0.19 + t * 0.22 + 0.4;
-    vec3 aCol = vec3(
-      0.25 + 0.55 * sin(h + 0.0),
-      0.50 + 0.42 * sin(h + 2.09),
-      0.80 + 0.20 * sin(h + 4.19)
-    );
-
-    float pulse = 0.10 + 0.06 * sin(t * 1.8 + fi * 0.73);
-    col += glow * aCol * pulse;
-  }
-
-  // Nebula depth fog
-  float neb  = fbm(st * 0.6 + t * 0.04);
-  col += vec3(0.015, 0.002, 0.04) * (neb + 0.5) * 0.7;
-
-  // Vignette — darken corners so UI stays readable
-  float vig = 1.0 - length((uv - 0.5) * 1.55);
-  col *= clamp(vig, 0.0, 1.0);
-
-  // Slight tone-map so highlights don't blow out
-  col = col / (col + 0.55);
-
-  gl_FragColor = vec4(col, 1.0);
-}
-`;
-
-export function AnoAI() {
+const AnoAI = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    Object.assign(renderer.domElement.style, {
-      position: 'absolute', inset: '0', width: '100%', height: '100%',
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const renderer = new THREE.WebGLRenderer({
+      antialias: false,
+      powerPreference: "low-power",
     });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+    renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    const scene  = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        iTime: { value: 0 },
+        iResolution: {
+          value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+        },
+      },
+      vertexShader: `
+        void main() {
+          gl_Position = vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float iTime;
+        uniform vec2 iResolution;
 
-    const uniforms = {
-      uTime:       { value: 0 },
-      uResolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) },
-    };
+        #define NUM_OCTAVES 2
 
-    const geo = new THREE.PlaneGeometry(2, 2);
-    const mat = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms });
-    scene.add(new THREE.Mesh(geo, mat));
+        float rand(vec2 n) {
+          return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+        }
 
-    const onResize = () => {
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      renderer.setSize(w, h);
-      uniforms.uResolution.value.set(w, h);
-    };
-    window.addEventListener('resize', onResize);
+        float noise(vec2 p) {
+          vec2 ip = floor(p);
+          vec2 u = fract(p);
+          u = u*u*(3.0-2.0*u);
 
-    let raf: number;
-    const clock = new THREE.Clock();
-    const tick  = () => {
-      raf = requestAnimationFrame(tick);
-      uniforms.uTime.value = clock.getElapsedTime();
+          float res = mix(
+            mix(rand(ip), rand(ip + vec2(1.0, 0.0)), u.x),
+            mix(rand(ip + vec2(0.0, 1.0)), rand(ip + vec2(1.0, 1.0)), u.x), u.y);
+          return res * res;
+        }
+
+        float fbm(vec2 x) {
+          float v = 0.0;
+          float a = 0.28;
+          vec2 shift = vec2(100);
+          mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
+          for (int i = 0; i < NUM_OCTAVES; ++i) {
+            v += a * noise(x);
+            x = rot * x * 2.0 + shift;
+            a *= 0.4;
+          }
+          return v;
+        }
+
+        void main() {
+          vec2 p = (gl_FragCoord.xy - iResolution.xy * 0.5) / iResolution.y * mat2(6.0, -4.0, 4.0, 6.0);
+          vec2 v;
+          vec4 o = vec4(0.0);
+
+          float f = 2.0 + fbm(p + vec2(iTime * 4.0, 0.0)) * 0.45;
+
+          for (float i = 0.0; i < 18.0; i++) {
+            v = p + cos(i * i + (iTime + p.x * 0.08) * 0.02 + i * vec2(13.0, 11.0)) * 3.0;
+            float tailNoise = fbm(v + vec2(iTime * 0.35, i)) * 0.25 * (1.0 - (i / 18.0));
+            vec4 auroraColors = vec4(
+              0.1 + 0.25 * sin(i * 0.2 + iTime * 0.4),
+              0.3 + 0.45 * cos(i * 0.3 + iTime * 0.5),
+              0.7 + 0.25 * sin(i * 0.4 + iTime * 0.3),
+              1.0
+            );
+            vec4 currentContribution = auroraColors * exp(sin(i * i + iTime * 0.7))
+              / length(max(v, vec2(v.x * f * 0.015, v.y * 1.4)));
+            float thinnessFactor = smoothstep(0.0, 1.0, i / 18.0) * 0.55;
+            o += currentContribution * (1.0 + tailNoise * 0.7) * thinnessFactor;
+          }
+
+          o = tanh(pow(o / 90.0, vec4(1.55)));
+          gl_FragColor = o * 1.35;
+        }
+      `,
+    });
+
+    const geometry = new THREE.PlaneGeometry(2, 2);
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    let frameId = 0;
+    let last = performance.now();
+    let running = true;
+    const animate = (now: number) => {
+      if (!running) return;
+      const delta = Math.min((now - last) / 1000, 0.033);
+      last = now;
+      material.uniforms.iTime.value += delta;
       renderer.render(scene, camera);
+      frameId = requestAnimationFrame(animate);
     };
-    tick();
+    frameId = requestAnimationFrame(animate);
+
+    const handleResize = () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      material.uniforms.iResolution.value.set(
+        window.innerWidth,
+        window.innerHeight
+      );
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        running = false;
+        cancelAnimationFrame(frameId);
+      } else if (!running) {
+        running = true;
+        last = performance.now();
+        frameId = requestAnimationFrame(animate);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', onResize);
-      mat.dispose();
-      geo.dispose();
+      running = false;
+      cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", handleResize);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      container.removeChild(renderer.domElement);
+      geometry.dispose();
+      material.dispose();
       renderer.dispose();
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
     };
   }, []);
 
   return (
-    <div ref={containerRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+    <div
+      ref={containerRef}
+      className="absolute inset-0 h-full w-full overflow-x-hidden"
+    />
   );
-}
+};
+
+export default AnoAI;

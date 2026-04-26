@@ -67,8 +67,8 @@ export class HUD {
     ctx.fillText(`${mm}:${ss}`, W / 2, tby + tbh / 2 + 1);
 
     // ── Stats panel (top-right) ───────────────────────────────────────────────────
-    const panelW = 210, panelH = 188;
-    const panelX = W - panelW - 12, panelY = 8;
+    const panelW = 270, panelH = 236;
+    const panelX = W - panelW - 14, panelY = 10;
 
     // panel bg + pixel border
     ctx.fillStyle = 'rgba(4, 2, 20, 0.88)';
@@ -95,9 +95,9 @@ export class HUD {
       { label: 'LAG',      value: lagLabel,                            vc: '#c0a0ff' },
     ];
 
-    const pad  = 10;
+    const pad  = 13;
     const rowH = (panelH - pad * 2) / rows.length;
-    ctx.font         = `7px ${PX_FONT}`;
+    ctx.font         = `8px ${PX_FONT}`;
     ctx.textBaseline = 'middle';
 
     rows.forEach(({ label, value, vc }, i) => {
@@ -154,18 +154,18 @@ export class HUD {
     ctx.fillText(isMaxLevel() ? `${skin.name} MAX` : skin.name, barX + barW + 8, barY + barH / 2);
 
     // ── Health bar (hearts / pixel dashes) ────────────────────────────────────
-    const hbx = panelX, hby = panelY + panelH + 8;
-    ctx.font         = `7px ${PX_FONT}`;
+    const hbx = panelX, hby = panelY + panelH + 10;
+    ctx.font         = `8px ${PX_FONT}`;
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle    = '#ff4466';
     for (let i = 0; i < maxHits; i++) {
       const alive = i >= hitCount;
       ctx.fillStyle = alive ? '#ff2244' : 'rgba(100,30,50,0.5)';
-      ctx.fillRect(hbx + i * 20, hby, 14, 14);
+      ctx.fillRect(hbx + i * 26, hby, 18, 18);
       if (alive) {
         ctx.fillStyle = '#ff8898';
-        ctx.fillRect(hbx + i * 20 + 2, hby + 2, 4, 4);
+        ctx.fillRect(hbx + i * 26 + 3, hby + 3, 5, 5);
       }
     }
 

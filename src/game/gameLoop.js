@@ -7,7 +7,7 @@ import { HUD }            from '../ui/hud.js';
 import { poseData }       from '../tracking/poseInterface.js';
 import { initPoseEngine } from '../tracking/poseEngine.js';
 import { runCalibration, goldenBounds } from '../tracking/calibration.js';
-import { recordMiss, resetMissCount, getMissCount } from '../tracking/adaptiveBubble.js';
+import { recordMiss, resetMissCount, getMissCount, recordCollection } from '../tracking/adaptiveBubble.js';
 
 // ─── State Machine ────────────────────────────────────────────────────────────
 export const GameState = {
@@ -17,7 +17,13 @@ export const GameState = {
   ENDED:       'ended',
 };
 
+export const MovementMode = {
+  STANDING: 'standing',
+  WHEELCHAIR: 'wheelchair',
+};
+
 let state = GameState.IDLE;
+let movementMode = MovementMode.STANDING;
 
 function setState(next) {
   state = next;
@@ -67,7 +73,7 @@ let webcamEl  = null;
 
 // ─── Session State ────────────────────────────────────────────────────────────
 const MAX_HITS    = 3;
-const SESSION_SEC = 120;
+const SESSION_SEC = 180;
 
 let score        = 0;
 let hitCount     = 0;
@@ -134,9 +140,13 @@ function _applyCalibrationBounds() {
   const xMin = lValid ? (1 - goldenBounds.left.maxX)  * W : W * 0.08;
   const xMax = rValid ? (1 - goldenBounds.right.minX) * W : W * 0.92;
 
-  // Y bounds: spawn stars within the arm's reach zone, close to the ship
-  const yMin = Math.max(40, shipY - maxArmLen * 0.90);
-  const yMax = Math.min(shipY - 60, shipY - maxArmLen * 0.10);
+  // Y bounds: wheelchair mode keeps stars a bit closer to ship (lower on screen)
+  const yMin = movementMode === MovementMode.WHEELCHAIR
+    ? Math.max(60, shipY - maxArmLen * 0.62)
+    : Math.max(40, shipY - maxArmLen * 0.90);
+  const yMax = movementMode === MovementMode.WHEELCHAIR
+    ? Math.min(shipY - 35, shipY - maxArmLen * 0.02)
+    : Math.min(shipY - 60, shipY - maxArmLen * 0.10);
 
   stardust.setBounds(
     Math.max(40,     xMin - 20),
@@ -190,7 +200,8 @@ function update(dt) {
   if (sessionTimer >= SESSION_SEC) { endSession(); return; }
 
   // flip X to match mirrored webcam display (scaleX(-1) in CSS)
-  ship.lerpTo((1 - poseData.hipX) * canvas.width, dt);
+  const steeringX = movementMode === MovementMode.WHEELCHAIR ? poseData.neckX : poseData.torsoX;
+  ship.lerpTo((1 - steeringX) * canvas.width, dt);
   ship.update(dt);
 
   // smooth wrist + elbow positions to remove MediaPipe jitter
@@ -245,6 +256,7 @@ function update(dt) {
   rightGrabbed = stardust.getGrabbedBy('right');
 
   if (collected > 0) {
+    recordCollection(collected);
     score += collected;
 
     // J3.1 — award XP, check for level-up
@@ -366,11 +378,26 @@ function drawCalibrationGuide() {
   ctx.lineJoin    = 'round';
   ctx.setLineDash([7, 5]);
 
-  ctx.beginPath(); ctx.arc(cx, headCY, headR, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, neckY);  ctx.lineTo(cx, hipY);  ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx - shoulderSpan, shoulderY); ctx.lineTo(cx + shoulderSpan, shoulderY); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, hipY); ctx.lineTo(cx - figH * 0.13, footY); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, hipY); ctx.lineTo(cx + figH * 0.13, footY); ctx.stroke();
+  if (movementMode === MovementMode.WHEELCHAIR) {
+    // torso-first marker, shifted lower to better match seated posture
+    const seatOffset = figH * 0.18;
+    const torsoTop   = shoulderY + seatOffset;
+    const torsoBot   = hipY + seatOffset;
+    const torsoHalf  = shoulderSpan * 0.95;
+    const headY      = headCY + seatOffset;
+
+    ctx.beginPath(); ctx.arc(cx, headY, headR * 0.92, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - torsoHalf, torsoTop); ctx.lineTo(cx + torsoHalf, torsoTop); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - torsoHalf * 0.8, torsoTop); ctx.lineTo(cx - torsoHalf * 0.65, torsoBot); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + torsoHalf * 0.8, torsoTop); ctx.lineTo(cx + torsoHalf * 0.65, torsoBot); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - torsoHalf * 0.65, torsoBot); ctx.lineTo(cx + torsoHalf * 0.65, torsoBot); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.arc(cx, headCY, headR, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, neckY);  ctx.lineTo(cx, hipY);  ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - shoulderSpan, shoulderY); ctx.lineTo(cx + shoulderSpan, shoulderY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, hipY); ctx.lineTo(cx - figH * 0.13, footY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, hipY); ctx.lineTo(cx + figH * 0.13, footY); ctx.stroke();
+  }
 
   ctx.setLineDash([]);
   ctx.restore();
@@ -735,4 +762,12 @@ export function requestPrimaryAction() {
 
 export function getGameState() {
   return state;
+}
+
+export function setMovementMode(mode) {
+  movementMode = mode === MovementMode.WHEELCHAIR ? MovementMode.WHEELCHAIR : MovementMode.STANDING;
+}
+
+export function getMovementMode() {
+  return movementMode;
 }

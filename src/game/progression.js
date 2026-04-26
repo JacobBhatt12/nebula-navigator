@@ -1,6 +1,6 @@
 const XP_PER_STAR = 10;
 
-const THRESHOLDS = [0, 50, 120, 210, 320, 450];
+const THRESHOLDS = [0, 50, 120, 210, 320, 450, 600, 780, 990, 1230];
 
 // hull/stroke → ship body; wing → side panels; cockpit → dome/window
 export const SKINS = [

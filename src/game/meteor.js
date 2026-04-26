@@ -100,6 +100,7 @@ export class MeteorManager {
     this.meteors       = [];
     this.spawnTimer    = 0;
     this.spawnInterval = 2.2;
+    this.extraSpawnChance = 0;
   }
 
   update(dt, canvasWidth, canvasHeight, ship) {
@@ -107,6 +108,9 @@ export class MeteorManager {
     if (this.spawnTimer >= this.spawnInterval) {
       this.spawnTimer = 0;
       this.meteors.push(new Meteor(canvasWidth));
+      if (Math.random() < this.extraSpawnChance) {
+        this.meteors.push(new Meteor(canvasWidth));
+      }
     }
 
     let hits = 0;
@@ -132,6 +136,7 @@ export class MeteorManager {
   }
 
   setLevel(level) {
-    this.spawnInterval = Math.max(0.8, 2.2 - (level - 1) * 0.2);
+    this.spawnInterval   = Math.max(0.55, 2.2 - (level - 1) * 0.22);
+    this.extraSpawnChance = Math.min(0.95, (level - 1) * 0.11);
   }
 }

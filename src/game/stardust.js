@@ -5,57 +5,55 @@ const GRAB_RADIUS_DEFAULT = 55;
 
 // Pixel-art palettes for each star type
 const PALETTES = [
-  { fill: '#ffe840', light: '#ffffff', dark: '#c89000', face: '#604000' }, // yellow
-  { fill: '#40e870', light: '#aaffcc', dark: '#109030', face: '#004018' }, // green
-  { fill: '#40d8ff', light: '#ccf8ff', dark: '#0088b0', face: '#003848' }, // cyan
-  { fill: '#ff88cc', light: '#ffccee', dark: '#c02880', face: '#600030' }, // pink
+  { fill: '#ffe31a', light: '#fff6a8', dark: '#b96a18', face: '#402010' }, // yellow
+  { fill: '#f2a0a9', light: '#ffe1c8', dark: '#9f1f6a', face: '#2b1a18' }, // pink
+  { fill: '#5a8fd0', light: '#8bc5f2', dark: '#3f4a86', face: '#18233d' }, // blue
 ];
 
-// Draw a 4-pointed pixel art sparkle star centered at (cx, cy)
+// Draw a 5-pointed retro star centered at (cx, cy)
 function _drawPixelStarBody(ctx, cx, cy, r, palette) {
-  const P  = Math.max(2, Math.round(r / 5));
+  const outer = r * 1.04;
+  const inner = r * 0.48;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = -Math.PI / 2 + i * Math.PI / 5;
+    const rr = i % 2 === 0 ? outer : inner;
+    const px = Math.round(Math.cos(angle) * rr);
+    const py = Math.round(Math.sin(angle) * rr);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = palette.fill;
+  ctx.fill();
+  ctx.lineJoin = 'miter';
+  ctx.lineWidth = Math.max(2.5, r * 0.20);
+  ctx.strokeStyle = palette.dark;
+  ctx.stroke();
+
+  // pixel-ish highlight clusters
+  const P = Math.max(2, Math.round(r / 7));
   const pr = (x, y, w, h, col) => {
     ctx.fillStyle = col;
-    ctx.fillRect(cx + x * P, cy + y * P, w * P, h * P);
+    ctx.fillRect(Math.round(x * P), Math.round(y * P), Math.round(w * P), Math.round(h * P));
   };
-
-  // Horizontal arm
-  pr(-5,-1,10, 2, palette.fill);
-  // Vertical arm
-  pr(-1,-5, 2,10, palette.fill);
-  // Diamond center
-  pr(-2,-2, 4, 4, palette.fill);
-  pr(-3,-1, 6, 2, palette.fill);
-  pr(-1,-3, 2, 6, palette.fill);
-  // Spike tips (lighter)
-  pr(-1,-5, 2, 1, palette.light);
-  pr(-1, 5, 2, 1, palette.light);
-  pr(-5,-1, 1, 2, palette.light);
-  pr( 5,-1, 1, 2, palette.light);
-  // Diagonal corner highlights
-  pr(-2,-2, 2, 1, palette.light);
-  pr(-2,-1, 1, 2, palette.light);
-  // Shadow bottom-right
-  pr( 1, 1, 2, 1, palette.dark);
-  pr( 1, 2, 1, 1, palette.dark);
+  pr(-2.4, -2.2, 1.5, 0.9, palette.light);
+  pr(-3.0, -0.4, 1.1, 0.9, palette.light);
+  pr(-2.0, 1.4, 1.0, 0.9, palette.light);
+  pr(1.3, -1.6, 1.3, 0.8, palette.light);
+  pr(1.9, 0.9, 1.0, 0.8, '#ffffff66');
+  ctx.restore();
 }
 
-// Pixel art face: square eyes + smile
+// Face: two vertical eyes (Mario-style)
 function _drawPixelFace(ctx, cx, cy, r, faceColor) {
-  const P  = Math.max(2, Math.round(r / 5));
-  const pr = (x, y, w, h) => { ctx.fillStyle = faceColor; ctx.fillRect(cx + x*P, cy + y*P, w*P, h*P); };
-
-  // eyes
-  pr(-2, -1, 2, 2);
-  pr( 1, -1, 2, 2);
-  // glints
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.fillRect(cx + (-1)*P, cy + (-1)*P, P, P);
-  ctx.fillRect(cx +  (2)*P, cy + (-1)*P, P, P);
-  // smile row
-  pr(-2, 2, 1, 1);
-  pr(-1, 3, 3, 1);
-  pr( 2, 2, 1, 1);
+  const P = Math.max(2, Math.round(r / 7));
+  ctx.fillStyle = faceColor;
+  ctx.fillRect(cx - Math.round(P * 2.1), cy - Math.round(P * 1.2), Math.round(P * 0.9), Math.round(P * 2.6));
+  ctx.fillRect(cx + Math.round(P * 1.2), cy - Math.round(P * 1.2), Math.round(P * 0.9), Math.round(P * 2.6));
 }
 
 export class Stardust {
@@ -152,23 +150,32 @@ export class Stardust {
     const urgentAlpha = urgent ? 0.7 + 0.3 * Math.sin(pulse * 6) : 1;
     ctx.globalAlpha   = urgentAlpha;
 
-    // grab bubble ring
-    const ringAlpha = this.progress > 0
-      ? 0.55 + 0.4 * this.progress
-      : 0.18 + 0.10 * Math.sin(pulse * 1.4);
-    ctx.beginPath();
-    ctx.arc(x, y, this.grabRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(80, 220, 255, ${ringAlpha})`;
-    ctx.lineWidth   = 2;
-    ctx.setLineDash([6, 5]);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    const showGrabRing = this.grabRadius > r + 6;
 
-    // square pixel glow behind star
-    const gs = r * 2.6;
-    const ga = 0.10 + 0.06 * Math.sin(pulse);
-    ctx.fillStyle = palette.fill + Math.round(ga * 255).toString(16).padStart(2, '0');
-    ctx.fillRect(x - gs, y - gs, gs * 2, gs * 2);
+    // grab bubble ring
+    if (showGrabRing) {
+      const ringAlpha = this.progress > 0
+        ? 0.55 + 0.4 * this.progress
+        : 0.18 + 0.10 * Math.sin(pulse * 1.4);
+      ctx.beginPath();
+      ctx.arc(x, y, this.grabRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(80, 220, 255, ${ringAlpha})`;
+      ctx.lineWidth   = 2;
+      ctx.setLineDash([6, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // circular glow behind star
+    const glowR = r * 2.0;
+    const glow = ctx.createRadialGradient(x, y, r * 0.25, x, y, glowR);
+    glow.addColorStop(0, `${palette.fill}66`);
+    glow.addColorStop(0.65, `${palette.fill}22`);
+    glow.addColorStop(1, `${palette.fill}00`);
+    ctx.beginPath();
+    ctx.arc(x, y, glowR, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
 
     // pixel star body + face
     _drawPixelStarBody(ctx, x, y, r, palette);
@@ -184,7 +191,7 @@ export class Stardust {
     ctx.fillText(`${secsLeft}s`, x, y + r + P * 5);
 
     // hold-progress arc
-    if (this.progress > 0) {
+    if (this.progress > 0 && showGrabRing) {
       ctx.beginPath();
       ctx.arc(x, y, r + 9, -Math.PI / 2, -Math.PI / 2 + this.progress * Math.PI * 2);
       ctx.strokeStyle = `rgba(80, 220, 255, ${0.5 + 0.5 * this.progress})`;

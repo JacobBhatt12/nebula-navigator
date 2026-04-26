@@ -91,7 +91,7 @@ export class HUD {
       { label: 'LEVEL',    value: `${lvl}${isMaxLevel() ? ' MAX' : ''}`, vc: '#40e8ff' },
       { label: 'MISS',     value: String(missCount),                   vc: '#ff8060' },
       { label: 'HITS',     value: `${hitCount}/${maxHits}`,            vc: '#ff4466' },
-      { label: 'BUBBLE',   value: bubbleRadius < 100 ? 'LOW' : 'OPT', vc: '#80ff80' },
+      { label: 'BUBBLE',   value: bubbleRadius < 72 ? 'LOW' : bubbleRadius < 96 ? 'MED' : 'HIGH', vc: '#80ff80' },
       { label: 'LAG',      value: lagLabel,                            vc: '#c0a0ff' },
     ];
 

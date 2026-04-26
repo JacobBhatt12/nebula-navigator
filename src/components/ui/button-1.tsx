@@ -233,23 +233,23 @@ export const Liquid: React.FC<LiquidProps> = ({ isHovered, colors }) => {
 };
 
 const COLORS: Colors = {
-  color1: '#FFFFFF',
-  color2: '#1E10C5',
-  color3: '#9089E2',
-  color4: '#FCFCFE',
-  color5: '#F9F9FD',
-  color6: '#B2B8E7',
-  color7: '#0E2DCB',
-  color8: '#0017E9',
-  color9: '#4743EF',
-  color10: '#7D7BF4',
-  color11: '#0B06FC',
-  color12: '#C5C1EA',
-  color13: '#1403DE',
-  color14: '#B6BAF6',
-  color15: '#C1BEEB',
-  color16: '#290ECB',
-  color17: '#3F4CC0',
+  color1: '#08FFFF',
+  color2: '#FF08F3',
+  color3: '#08FFFF',
+  color4: '#FF08F3',
+  color5: '#08FFFF',
+  color6: '#FF08F3',
+  color7: '#08FFFF',
+  color8: '#FF08F3',
+  color9: '#08FFFF',
+  color10: '#FF08F3',
+  color11: '#08FFFF',
+  color12: '#FF08F3',
+  color13: '#08FFFF',
+  color14: '#FF08F3',
+  color15: '#08FFFF',
+  color16: '#FF08F3',
+  color17: '#08FFFF',
 };
 
 type LiquidStartButtonProps = {
@@ -262,16 +262,16 @@ const LiquidStartButton: React.FC<LiquidStartButtonProps> = ({ onClick, label = 
 
   return (
     <div className="flex justify-center">
-      <div className="group relative mx-auto inline-block h-12 w-64 rounded-lg border-2 border-cyan-300 bg-black/80 shadow-[0_0_20px_rgba(34,211,238,0.45)]">
+      <div className="group relative mx-auto inline-block h-12 w-64 rounded-lg border-2 border-[#08FFFF] bg-black/80 shadow-[0_0_20px_rgba(255,8,243,0.45)]">
         <div className="pointer-events-none absolute left-1/2 top-[8.57%] h-[128.57%] w-[112.81%] -translate-x-1/2 opacity-70 blur-[19px]">
-          <span className="absolute inset-0 rounded-lg bg-[#d9d9d9] blur-[6.5px]" />
+          <span className="absolute inset-0 rounded-lg bg-[#FF08F3] blur-[6.5px]" />
           <div className="relative h-full w-full overflow-hidden rounded-lg">
             <Liquid isHovered={isHovered} colors={COLORS} />
           </div>
         </div>
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[112.85%] w-[92.23%] -translate-x-1/2 -translate-y-[40%] rounded-lg bg-[#010128] blur-[7.3px]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[112.85%] w-[92.23%] -translate-x-1/2 -translate-y-[40%] rounded-lg bg-[#120029] blur-[7.3px]" />
         <div className="pointer-events-none relative h-full w-full overflow-hidden rounded-lg">
-          <span className="absolute inset-0 rounded-lg bg-[#d9d9d9]" />
+          <span className="absolute inset-0 rounded-lg bg-[#08FFFF]" />
           <span className="absolute inset-0 rounded-lg bg-black" />
           <Liquid isHovered={isHovered} colors={COLORS} />
           {[1, 2, 3, 4, 5].map((i) => (
@@ -282,7 +282,7 @@ const LiquidStartButton: React.FC<LiquidStartButtonProps> = ({ onClick, label = 
               }`}
             />
           ))}
-          <span className="absolute left-1/2 top-1/2 h-[42.85%] w-[70.8%] -translate-x-1/2 -translate-y-[40%] rounded-lg bg-[#006] blur-[15px]" />
+          <span className="absolute left-1/2 top-1/2 h-[42.85%] w-[70.8%] -translate-x-1/2 -translate-y-[40%] rounded-lg bg-[#FF08F3] blur-[15px]" />
         </div>
         <button
           className="absolute inset-0 z-20 flex h-full w-full cursor-pointer items-center justify-center rounded-lg bg-transparent"
@@ -292,10 +292,10 @@ const LiquidStartButton: React.FC<LiquidStartButtonProps> = ({ onClick, label = 
           onMouseLeave={() => setIsHovered(false)}
           onClick={onClick}
         >
-          <span className="flex items-center justify-center gap-2 whitespace-nowrap px-4 text-base font-semibold tracking-wide text-cyan-50 drop-shadow-[0_0_8px_rgba(34,211,238,0.7)] group-hover:text-cyan-200">
-            <Sparkles className="h-4 w-4 fill-cyan-100 group-hover:fill-cyan-200" />
+          <span className="flex items-center justify-center gap-2 whitespace-nowrap px-4 text-base font-semibold tracking-wide text-[#08FFFF] drop-shadow-[0_0_8px_rgba(8,255,255,0.7)] group-hover:text-[#FF08F3]">
+            <Sparkles className="h-4 w-4 fill-[#08FFFF] group-hover:fill-[#FF08F3]" />
             <span className="leading-none">{label}</span>
-            <Play className="h-4 w-4 fill-cyan-100 group-hover:fill-cyan-200" />
+            <Play className="h-4 w-4 fill-[#08FFFF] group-hover:fill-[#FF08F3]" />
           </span>
         </button>
       </div>

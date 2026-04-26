@@ -4,10 +4,13 @@ import { recordFrame, normalizeWrist, getPhase } from './calibration.js';
 // MediaPipe landmark indices
 const HIP_LEFT     = 23;
 const HIP_RIGHT    = 24;
+const SHOULDER_LEFT  = 11;
+const SHOULDER_RIGHT = 12;
 const ELBOW_LEFT   = 13;
 const ELBOW_RIGHT  = 14;
 const WRIST_LEFT   = 15;
 const WRIST_RIGHT  = 16;
+const NOSE = 0;
 
 let poseLandmarker = null;
 let videoElement   = null;
@@ -138,6 +141,12 @@ function processFrame() {
     lastLandmarks = lm;
 
     const hipX      = (lm[HIP_LEFT].x + lm[HIP_RIGHT].x) / 2;
+    const shoulderX = (lm[SHOULDER_LEFT].x + lm[SHOULDER_RIGHT].x) / 2;
+    const noseX     = lm[NOSE].x;
+    const shoulderVis = ((lm[SHOULDER_LEFT].visibility ?? 1) + (lm[SHOULDER_RIGHT].visibility ?? 1)) * 0.5;
+    const noseVis     = lm[NOSE].visibility ?? 1;
+    const torsoX      = (hipX * 0.6) + (shoulderX * 0.4);
+    const neckX       = (shoulderVis > 0.4 && noseVis > 0.4) ? (shoulderX * 0.55 + noseX * 0.45) : shoulderX;
     const rawLeft   = { x: lm[WRIST_LEFT].x,  y: lm[WRIST_LEFT].y  };
     const rawRight  = { x: lm[WRIST_RIGHT].x, y: lm[WRIST_RIGHT].y };
     const leftElbow = { x: lm[ELBOW_LEFT].x,  y: lm[ELBOW_LEFT].y  };
@@ -149,7 +158,16 @@ function processFrame() {
     const leftWrist   = calibrated ? normalizeWrist(rawLeft,  'left')  : rawLeft;
     const rightWrist  = calibrated ? normalizeWrist(rawRight, 'right') : rawRight;
 
-    updatePoseData({ hipX, leftWrist, rightWrist, leftElbow, rightElbow, isCalibrated: calibrated });
+    updatePoseData({
+      hipX,
+      torsoX,
+      neckX,
+      leftWrist,
+      rightWrist,
+      leftElbow,
+      rightElbow,
+      isCalibrated: calibrated,
+    });
   }
 
   _drawSkeletonFrame();

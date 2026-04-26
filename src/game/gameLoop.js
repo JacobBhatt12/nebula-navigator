@@ -5,9 +5,18 @@ import { StardustManager } from './stardust.js';
 import { addXP, getLevel, getSkin, reset as resetProgression } from './progression.js';
 import { HUD }            from '../ui/hud.js';
 import { poseData }       from '../tracking/poseInterface.js';
-import { initPoseEngine } from '../tracking/poseEngine.js';
+import { initPoseEngine, getWebcamStream } from '../tracking/poseEngine.js';
 import { runCalibration, goldenBounds } from '../tracking/calibration.js';
 import { recordMiss, resetMissCount, getMissCount } from '../tracking/adaptiveBubble.js';
+import {
+  startSession  as telemetryStart,
+  logMovement,
+  logTargetEvent,
+  endSession    as telemetryEnd,
+} from '../ai/telemetry.js';
+import { startRecording, stopRecording } from '../ai/sessionRecorder.js';
+import { generateReport }                from '../ai/reportGenerator.js';
+import { showReportModal }               from '../ui/reportModal.js';
 
 // ─── State Machine ────────────────────────────────────────────────────────────
 export const GameState = {
@@ -157,6 +166,9 @@ function startSession() {
   resetMissCount();
   resetProgression();
   lagScore = 0;
+  telemetryStart();
+  const stream = getWebcamStream();
+  if (stream) startRecording(stream);
   setState(GameState.PLAYING);
 }
 
@@ -167,6 +179,27 @@ function resetSession() {
 
 function endSession() {
   setState(GameState.ENDED);
+  _finishSession();
+}
+
+async function _finishSession() {
+  const telemetry = telemetryEnd();
+
+  let videoUrl = null;
+  try {
+    const result = await stopRecording();
+    videoUrl = result.videoUrl;
+  } catch (err) {
+    console.warn('[Session] video recording unavailable:', err.message);
+  }
+
+  try {
+    const { report, summary } = await generateReport(telemetry);
+    showReportModal({ report, videoUrl, summary });
+  } catch (err) {
+    console.error('[Session] report generation failed:', err.message);
+    showReportModal({ report: `Report unavailable: ${err.message}`, videoUrl, summary: telemetry.summary });
+  }
 }
 
 // ─── Resize ───────────────────────────────────────────────────────────────────
@@ -185,6 +218,7 @@ function update(dt) {
   if (state !== GameState.PLAYING) return;
 
   hud.update(dt);
+  logMovement(poseData);
 
   sessionTimer += dt;
   if (sessionTimer >= SESSION_SEC) { endSession(); return; }
@@ -237,7 +271,10 @@ function update(dt) {
     ship.x, ship.y
   );
   if (missed > 0) {
-    for (let i = 0; i < missed; i++) recordMiss();
+    for (let i = 0; i < missed; i++) {
+      recordMiss();
+      logTargetEvent('miss', { bubbleRadius: poseData.bubbleRadius });
+    }
   }
 
   // track which star each arm is holding this frame (used in draw)
@@ -246,6 +283,9 @@ function update(dt) {
 
   if (collected > 0) {
     score += collected;
+    for (let i = 0; i < collected; i++) {
+      logTargetEvent('hit', { bubbleRadius: poseData.bubbleRadius });
+    }
 
     // J3.1 — award XP, check for level-up
     const leveledUp = addXP(collected);

@@ -9,10 +9,11 @@ const ELBOW_RIGHT  = 14;
 const WRIST_LEFT   = 15;
 const WRIST_RIGHT  = 16;
 
-let poseLandmarker = null;
-let videoElement   = null;
-let animFrameId    = null;
-let lastLandmarks  = null;
+let poseLandmarker  = null;
+let videoElement    = null;
+let _webcamStream   = null;   // kept at module scope so sessionRecorder can use it
+let animFrameId     = null;
+let lastLandmarks   = null;
 
 let _skeletonCanvas = null;
 let _skeletonCtx    = null;
@@ -57,12 +58,13 @@ async function loadMediaPipe() {
 }
 
 async function startWebcam() {
-  const stream = await navigator.mediaDevices.getUserMedia({
+  _webcamStream = await navigator.mediaDevices.getUserMedia({
     video: { width: 640, height: 480, facingMode: 'user' },
     audio: false,
   });
 
   videoElement = document.createElement('video');
+  const stream = _webcamStream;
   videoElement.srcObject  = stream;
   videoElement.autoplay   = true;
   videoElement.playsInline = true;
@@ -164,10 +166,16 @@ export async function initPoseEngine() {
   console.log('[PoseEngine] initialized — tracking started');
 }
 
+/** Returns the live webcam MediaStream (for use with sessionRecorder). */
+export function getWebcamStream() {
+  return _webcamStream;
+}
+
 export function stopPoseEngine() {
   if (animFrameId) cancelAnimationFrame(animFrameId);
-  if (videoElement?.srcObject) {
-    videoElement.srcObject.getTracks().forEach((t) => t.stop());
+  if (_webcamStream) {
+    _webcamStream.getTracks().forEach((t) => t.stop());
+    _webcamStream = null;
   }
   if (_skeletonCanvas) {
     _skeletonCanvas.remove();
